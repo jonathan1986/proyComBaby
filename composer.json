@@ -1,0 +1,13 @@
+{
+    "name": "proycombaby/ecommerce",
+    "description": "Sistema e-commerce monolito modular - Catálogo de Productos",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Modules\\": "modules/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "*"
+    }
+}

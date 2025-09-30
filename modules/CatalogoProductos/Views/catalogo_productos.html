@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Catálogo de Productos</title>
+    <link rel="stylesheet" href="catalogo.css">
+    <script src="catalogo.js" defer></script>
+</head>
+<body>
+    <h1>Catálogo de Productos</h1>
+    <form id="busquedaForm">
+        <input type="text" name="nombre" placeholder="Nombre del producto">
+        <select name="categoria" id="categoriaSelect">
+            <option value="">Todas las categorías</option>
+        </select>
+        <input type="number" name="precio_min" placeholder="Precio mínimo" min="0">
+        <input type="number" name="precio_max" placeholder="Precio máximo" min="0">
+        <button type="submit">Buscar</button>
+    </form>
+    <div id="productos"></div>
+
+    <script>
+    // Validación en cliente
+    document.getElementById('busquedaForm').addEventListener('submit', function(e) {
+        const precioMin = parseFloat(this.precio_min.value);
+        const precioMax = parseFloat(this.precio_max.value);
+        if (!isNaN(precioMin) && !isNaN(precioMax) && precioMin > precioMax) {
+            alert('El precio mínimo no puede ser mayor al máximo');
+            e.preventDefault();
+        }
+    });
+    </script>
+</body>
+</html>

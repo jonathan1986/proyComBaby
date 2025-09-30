@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Atributos</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="catalogo.css">
+</head>
+<body>
+    <div class="rounded shadow-sm d-flex align-items-center justify-content-between px-4 py-3 mb-4" style="background-color: rgb(232,232,232); color: #333;">
+        <h1 class="mb-0" style="font-size:1.7rem;">Gestión de Atributos</h1>
+        <button id="btnMostrarForm" type="button" class="btn btn-success fw-bold">
+            <span class="me-2">➕</span> Añadir
+        </button>
+    </div>
+    <form id="atributoForm" class="card p-4 mb-4 shadow-sm" style="display:none; max-width: 400px;">
+        <div style="background:#d7d8e5; border-radius:6px; padding:10px; margin-bottom:18px;">
+            <h4 id="formTitulo" class="mb-0 fw-bold text-center"></h4>
+        </div>
+        <div class="mb-3">
+            <label for="nombre" class="form-label mb-1"><strong>Nombre del atributo</strong></label>
+            <input type="text" id="nombre" name="nombre" maxlength="100" required class="form-control">
+            <span id="nombreError" class="text-danger small"></span>
+        </div>
+        <div class="mb-3">
+            <label for="tipo" class="form-label mb-1"><strong>Tipo de dato</strong></label>
+            <select id="tipo" name="tipo" required class="form-select">
+                <option value="string">Texto</option>
+                <option value="int">Entero</option>
+                <option value="float">Decimal</option>
+                <option value="bool">Booleano</option>
+                <option value="date">Fecha</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="estado" class="form-label mb-1"><strong>Estado</strong></label>
+            <select id="estado" name="estado" required class="form-select">
+                <option value="1" selected>Activo</option>
+                <option value="0">Inactivo</option>
+            </select>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-fill">Guardar</button>
+            <button type="button" id="btnCancelarForm" class="btn btn-secondary flex-fill">Cancelar</button>
+        </div>
+    </form>
+    <div class="container mt-4">
+        <div class="row mb-3 align-items-end">
+            <div class="col-12">
+                <div style="background:#f4f4fa; border-radius:8px; border:1px solid #d7d8e5; padding:18px;" class="mb-2">
+                    <div class="d-flex align-items-center flex-nowrap gap-3 w-100 mb-2">
+                        <label for="filtroCampo" class="form-label mb-0" style="white-space:nowrap;">Filtro campo:</label>
+                        <select id="filtroCampo" class="form-select flex-grow-1" style="min-width:180px;max-width:300px;">
+                            <option value="nombre">Nombre</option>
+                            <option value="tipo">Tipo</option>
+                            <option value="id_atributo">ID</option>
+                        </select>
+                        <div class="d-flex ms-auto align-items-center" style="min-width:220px;">
+                            <label for="ordenCampo" class="form-label mb-0 me-2" style="white-space:nowrap;">Orden:</label>
+                            <select id="ordenCampo" class="form-select" style="min-width:120px;max-width:180px;">
+                                <option value="asc">Ascendente</option>
+                                <option value="desc">Descendente</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center flex-nowrap gap-2 w-100 mt-2">
+                        <label for="busqueda" class="form-label mb-0" style="white-space:nowrap;">Buscar:</label>
+                        <input type="text" id="busqueda" class="form-control flex-grow-1" placeholder="Buscar..." style="min-width:180px;max-width:300px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <table id="tablaAtributos" class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <script>
+    let atributos = [];
+    function renderAtributos() {
+        const campo = document.getElementById('filtroCampo').value;
+        const busqueda = document.getElementById('busqueda').value.toLowerCase();
+        const orden = document.getElementById('ordenCampo').value;
+        let filtrados = atributos.filter(attr => {
+            if (!busqueda) return true;
+            let valor = (attr[campo] || '').toString().toLowerCase();
+            return valor.includes(busqueda);
+        });
+        filtrados.sort((a, b) => {
+            let va = (a[campo] || '').toString().toLowerCase();
+            let vb = (b[campo] || '').toString().toLowerCase();
+            if (campo === 'id_atributo') {
+                va = parseInt(a[campo]);
+                vb = parseInt(b[campo]);
+                if (isNaN(va)) va = 0;
+                if (isNaN(vb)) vb = 0;
+            }
+            if (va < vb) return orden === 'asc' ? -1 : 1;
+            if (va > vb) return orden === 'asc' ? 1 : -1;
+            return 0;
+        });
+        const tbody = document.querySelector('#tablaAtributos tbody');
+        tbody.innerHTML = '';
+        // Función para escapar HTML y evitar XSS
+        function escapeHtml(text) {
+            return text.replace(/[&<>'"`=]/g, function (c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;','`':'&#96;','=':'&#61;'}[c];
+            });
+        }
+        filtrados.forEach((attr, i) => {
+            tbody.innerHTML += `<tr>
+                <td>${i+1}</td>
+                <td>${escapeHtml(attr.id_atributo.toString())}</td>
+                <td>${escapeHtml(attr.nombre)}</td>
+                <td>${escapeHtml(attr.tipo)}</td>
+                <td>${attr.estado == 1 ? 'Activo' : 'Inactivo'}</td>
+                <td>
+                    <button title='Ver' onclick='verAtributo(${escapeHtml(attr.id_atributo.toString())})'>🔍</button>
+                    <button title='Editar' onclick='editarAtributo(${escapeHtml(attr.id_atributo.toString())})'>✏️</button>
+                    <button title='Eliminar' onclick='eliminarAtributo(${escapeHtml(attr.id_atributo.toString())})'>❌</button>
+                </td>
+            </tr>`;
+        });
+        $('#tablaAtributos').DataTable({
+            destroy: true,
+            searching: false,
+            paging: true,
+            info: false,
+            pageLength: 10,
+            lengthChange: false
+        });
+    }
+    function cargarAtributos() {
+        fetch('../Controllers/atributo_api.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    atributos = data.atributos;
+                    renderAtributos();
+                }
+            });
+    }
+    document.getElementById('filtroCampo').addEventListener('change', renderAtributos);
+    document.getElementById('ordenCampo').addEventListener('change', renderAtributos);
+    document.getElementById('busqueda').addEventListener('input', renderAtributos);
+
+    // CRUD funcional
+    const btnMostrarForm = document.getElementById('btnMostrarForm');
+    const atributoForm = document.getElementById('atributoForm');
+    const btnCancelarForm = document.getElementById('btnCancelarForm');
+
+    btnMostrarForm.addEventListener('click', function() {
+    atributoForm.style.display = 'flex';
+    document.getElementById('formTitulo').textContent = 'Añadir atributo';
+    btnMostrarForm.disabled = true;
+    document.getElementById('filtroCampo').disabled = true;
+    document.getElementById('ordenCampo').disabled = true;
+    document.getElementById('busqueda').disabled = true;
+    document.getElementById('tablaAtributos').classList.add('table-disabled');
+    });
+
+    btnCancelarForm.addEventListener('click', function() {
+        atributoForm.style.display = 'none';
+        btnMostrarForm.disabled = false;
+        document.getElementById('filtroCampo').disabled = false;
+        document.getElementById('ordenCampo').disabled = false;
+        document.getElementById('busqueda').disabled = false;
+        document.getElementById('tablaAtributos').classList.remove('table-disabled');
+        // Restaurar campos y botón Guardar
+        document.getElementById('nombre').disabled = false;
+        document.getElementById('tipo').disabled = false;
+        document.getElementById('estado').disabled = false;
+        atributoForm.querySelector('button[type="submit"]').disabled = false;
+    });
+
+    let modoEdicion = false;
+    let idEdicion = null;
+    atributoForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const nombre = form.nombre.value.trim();
+        const regex = /^[\w\sáéíóúÁÉÍÓÚüÜñÑ.,-]{1,100}$/;
+        if (!regex.test(nombre)) {
+            alert('Nombre inválido. Solo letras, números y algunos signos permitidos. Máx 100 caracteres.');
+            form.nombre.focus();
+            return;
+        }
+        const datos = new FormData(form);
+        let url = '../Controllers/atributo_api.php';
+        let fetchConfig = { method: 'POST', body: datos };
+        if (modoEdicion && idEdicion) {
+            datos.append('id', idEdicion);
+            url += '?id=' + idEdicion;
+            fetchConfig = { method: 'PUT', body: new URLSearchParams(datos) };
+        }
+        fetch(url, fetchConfig)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert(modoEdicion ? 'Atributo actualizado' : 'Atributo guardado con ID: ' + data.id);
+                    form.reset();
+                    atributoForm.style.display = 'none';
+                    btnMostrarForm.disabled = false;
+                    document.getElementById('filtroCampo').disabled = false;
+                    document.getElementById('ordenCampo').disabled = false;
+                    document.getElementById('busqueda').disabled = false;
+                    document.getElementById('tablaAtributos').classList.remove('table-disabled');
+                    cargarAtributos();
+                    modoEdicion = false;
+                    idEdicion = null;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(function(err) { alert('Error de conexión: ' + err.message); });
+    });
+
+    // Validación en tiempo real y sanitización
+    document.getElementById('nombre').addEventListener('input', function() {
+        const nombre = this.value;
+        const regex = /^[\w\sáéíóúÁÉÍÓÚüÜñÑ.,-]{1,100}$/;
+        const errorSpan = document.getElementById('nombreError');
+        if (!regex.test(nombre)) {
+            errorSpan.textContent = 'Solo letras, números y algunos signos permitidos. Máx 100 caracteres.';
+            this.classList.add('is-invalid');
+        } else {
+            errorSpan.textContent = '';
+            this.classList.remove('is-invalid');
+        }
+    });
+
+    
+    // Acciones
+    window.verAtributo = function(id) {
+        const attr = atributos.find(a => a.id_atributo === id);
+        if (attr) {
+            atributoForm.style.display = 'flex';
+            document.getElementById('formTitulo').textContent = 'Consultar atributo';
+            btnMostrarForm.disabled = true;
+            document.getElementById('filtroCampo').disabled = true;
+            document.getElementById('ordenCampo').disabled = true;
+            document.getElementById('busqueda').disabled = true;
+            document.getElementById('tablaAtributos').classList.add('table-disabled');
+            document.getElementById('nombre').value = attr.nombre;
+            document.getElementById('tipo').value = attr.tipo;
+            document.getElementById('estado').value = attr.estado;
+            // Deshabilitar campos y botón Guardar
+            document.getElementById('nombre').disabled = true;
+            document.getElementById('tipo').disabled = true;
+            document.getElementById('estado').disabled = true;
+            atributoForm.querySelector('button[type="submit"]').disabled = true;
+            btnCancelarForm.disabled = false;
+        }
+    }
+    window.editarAtributo = function(id) {
+        const attr = atributos.find(a => a.id_atributo === id);
+        if (attr) {
+            modoEdicion = true;
+            idEdicion = id;
+            atributoForm.style.display = 'flex';
+            document.getElementById('formTitulo').textContent = 'Editar atributo';
+            btnMostrarForm.disabled = true;
+            document.getElementById('filtroCampo').disabled = true;
+            document.getElementById('ordenCampo').disabled = true;
+            document.getElementById('busqueda').disabled = true;
+            document.getElementById('tablaAtributos').classList.add('table-disabled');
+            document.getElementById('nombre').value = attr.nombre;
+            document.getElementById('tipo').value = attr.tipo;
+            document.getElementById('estado').value = attr.estado;
+        }
+    }
+    window.eliminarAtributo = function(id) {
+        if (confirm('¿Eliminar atributo?')) {
+            fetch('../Controllers/atributo_api.php?id=' + id, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Atributo eliminado');
+                    cargarAtributos();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            });
+        }
+    }
+    cargarAtributos();
+    </script>
+</body>
+</html>
+        <style>
+        .table-disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        </style>

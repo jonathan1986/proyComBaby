@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Producto - Gestión</title>
+	<!-- Requiere Bootstrap 5 y DataTables 2; si tu layout ya los incluye, puedes quitar estas líneas -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link href="https://cdn.datatables.net/v/bs5/dt-2.0.7/datatables.min.css" rel="stylesheet"/>
+	<style>
+		.tab-pane { padding-top: 1rem; }
+		.is-invalid + .invalid-feedback { display: block; }
+		.required::after { content: " *"; color: #dc3545; }
+	</style>
+</head>
+<body>
+	<div class="container my-4">
+		<div class="d-flex align-items-center justify-content-between mb-3">
+			<h1 class="h3 m-0">Producto - Gestión</h1>
+			<div class="d-flex align-items-center gap-2">
+				<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBuscarProducto">Buscar producto</button>
+				<span id="productoIdBadge" class="badge text-bg-secondary d-none">ID: <span id="productoIdText"></span></span>
+			</div>
+		</div>
+
+		<ul class="nav nav-tabs" id="productoTabs" role="tablist">
+			<li class="nav-item" role="presentation">
+				<button class="nav-link active" id="tab-datos" data-bs-toggle="tab" data-bs-target="#pane-datos" type="button" role="tab">Datos</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link disabled" id="tab-categorias" data-bs-toggle="tab" data-bs-target="#pane-categorias" type="button" role="tab" aria-disabled="true">Categorías</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link disabled" id="tab-atributos" data-bs-toggle="tab" data-bs-target="#pane-atributos" type="button" role="tab" aria-disabled="true">Atributos</button>
+			</li>
+			<li class="nav-item" role="presentation">
+				<button class="nav-link disabled" id="tab-imagenes" data-bs-toggle="tab" data-bs-target="#pane-imagenes" type="button" role="tab" aria-disabled="true">Imágenes</button>
+			</li>
+		</ul>
+
+		<div class="tab-content" id="productoTabsContent">
+			<!-- TAB: DATOS -->
+			<div class="tab-pane fade show active" id="pane-datos" role="tabpanel" aria-labelledby="tab-datos">
+				<form id="productoForm" novalidate class="mt-3">
+					<div class="row g-3">
+						<div class="col-md-6">
+							<label class="form-label required" for="nombre">Nombre</label>
+							<input type="text" id="nombre" name="nombre" class="form-control" maxlength="100" required placeholder="Nombre del producto" />
+							<div class="invalid-feedback" id="nombreError">El nombre es obligatorio, máximo 100 caracteres; solo letras, números, espacios y . , - _ & permitidos.</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label required" for="precio">Precio</label>
+							<input type="number" step="0.01" min="0" id="precio" name="precio" class="form-control" required placeholder="0.00" />
+							<div class="invalid-feedback">Ingresa un precio válido (>= 0).</div>
+						</div>
+						<div class="col-12">
+							<label class="form-label" for="descripcion">Descripción</label>
+							<textarea id="descripcion" name="descripcion" class="form-control" rows="3" placeholder="Descripción del producto"></textarea>
+						</div>
+						<div class="col-md-4">
+							<label class="form-label required" for="stock">Stock</label>
+							<input type="number" min="0" id="stock" name="stock" class="form-control" required placeholder="0" />
+							<div class="invalid-feedback">Ingresa un stock válido (>= 0).</div>
+						</div>
+						<div class="col-md-4">
+							<label class="form-label" for="stock_minimo">Stock mínimo</label>
+							<input type="number" min="0" id="stock_minimo" name="stock_minimo" class="form-control" placeholder="0" />
+						</div>
+						<div class="col-md-4">
+							<label class="form-label required" for="estado">Estado</label>
+							<select id="estado" name="estado" class="form-select" required>
+								<option value="activo" selected>Activo</option>
+								<option value="inactivo">Inactivo</option>
+							</select>
+							<div class="invalid-feedback">Selecciona un estado.</div>
+						</div>
+					</div>
+					<div class="mt-4 d-flex gap-2">
+						<button type="submit" class="btn btn-primary" id="btnGuardarProducto">Guardar producto</button>
+						<button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
+					</div>
+				</form>
+				<div class="alert alert-info mt-3" id="datosAyuda">Primero guarda los datos del producto para habilitar Categorías, Atributos e Imágenes.</div>
+			</div>
+
+			<!-- TAB: CATEGORÍAS -->
+			<div class="tab-pane fade" id="pane-categorias" role="tabpanel" aria-labelledby="tab-categorias">
+				<div class="d-flex justify-content-between align-items-center mt-3">
+					<h2 class="h5 m-0">Asignar categorías</h2>
+					<button class="btn btn-sm btn-outline-primary" id="btnRefrescarCategorias">Refrescar</button>
+				</div>
+				<div class="mt-3" id="categoriasContainer">
+					<div class="text-muted">Cargando categorías…</div>
+				</div>
+				<div class="mt-3">
+					<button class="btn btn-success" id="btnGuardarCategorias">Guardar categorías</button>
+					<small class="text-muted d-block mt-1">Nota: Requiere un endpoint para N:M (productos_categorias_api.php).</small>
+				</div>
+			</div>
+
+			<!-- TAB: ATRIBUTOS -->
+			<div class="tab-pane fade" id="pane-atributos" role="tabpanel" aria-labelledby="tab-atributos">
+				<div class="d-flex justify-content-between align-items-center mt-3">
+					<h2 class="h5 m-0">Atributos del producto</h2>
+					<button class="btn btn-sm btn-outline-primary" id="btnRefrescarAtributos">Refrescar</button>
+				</div>
+				<div class="table-responsive mt-3">
+					<table class="table align-middle" id="tablaAtributos">
+						<thead>
+							<tr>
+								<th>Atributo</th>
+								<th>Tipo</th>
+								<th>Valor</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+				<div class="mt-3">
+					<button class="btn btn-success" id="btnGuardarAtributos">Guardar atributos</button>
+					<small class="text-muted d-block mt-1">Nota: Requiere un endpoint para N:M (productos_atributos_api.php).</small>
+				</div>
+			</div>
+
+			<!-- TAB: IMÁGENES -->
+			<div class="tab-pane fade" id="pane-imagenes" role="tabpanel" aria-labelledby="tab-imagenes">
+				<form id="imagenForm" class="mt-3" enctype="multipart/form-data" action="javascript:void(0)">
+					<div class="row g-3">
+						<div class="col-md-6">
+							<label for="archivo_imagen" class="form-label required">Archivo de imagen</label>
+							<input class="form-control" type="file" id="archivo_imagen" name="archivo_imagen" accept="image/*" required />
+							<div class="invalid-feedback">Selecciona una imagen (jpg, jpeg, png, gif, webp).</div>
+						</div>
+						<div class="col-md-3 d-flex align-items-end">
+							<div class="form-check">
+								<input class="form-check-input" type="checkbox" value="1" id="principal" name="principal" />
+								<label class="form-check-label" for="principal">Principal</label>
+							</div>
+						</div>
+						<div class="col-md-3 d-flex align-items-end">
+							<button type="submit" class="btn btn-primary" id="btnSubirImagen">Subir imagen</button>
+						</div>
+					</div>
+				</form>
+				<hr />
+				<div class="table-responsive">
+					<table id="tablaImagenes" class="table table-striped w-100">
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Vista previa</th>
+								<th>Archivo</th>
+								<th>Principal</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal Buscar Producto -->
+	<div class="modal fade" id="modalBuscarProducto" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Buscar producto</h5>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+				</div>
+				<div class="modal-body">
+					<div class="input-group mb-3">
+						<input type="text" id="qProducto" class="form-control" placeholder="Nombre, ID..." />
+						<button class="btn btn-primary" id="btnBuscarProducto">Buscar</button>
+					</div>
+					<div class="table-responsive">
+						<table class="table table-hover" id="tablaResultadosProductos">
+							<thead><tr><th>ID</th><th>Nombre</th><th>Acciones</th></tr></thead>
+							<tbody></tbody>
+						</table>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<small class="text-muted">Selecciona un producto para editar.</small>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Scripts: Bootstrap + DataTables + Lógica de la página -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<script src="https://cdn.datatables.net/v/bs5/dt-2.0.7/datatables.min.js"></script>
+
+		<script>
+		// Utilidades de seguridad (OWASP): escapar HTML antes de inyectar
+		function escapeHTML(str) {
+			if (str === null || str === undefined) return '';
+			return String(str)
+				.replaceAll('&', '&amp;')
+				.replaceAll('<', '&lt;')
+				.replaceAll('>', '&gt;')
+				.replaceAll('"', '&quot;')
+				.replaceAll("'", '&#39;');
+		}
+
+		const state = {
+			productoId: null,
+			imagenes: []
+		};
+
+		// ================= RUTAS DINÁMICAS =================
+		// Calcula la raíz del proyecto aunque la app esté alojada en un subdirectorio.
+		// Ej: si la página actual es /miapp/modules/CatalogoProductos/Views/producto_gestion.html
+		// basePath quedará en '/miapp/' y luego los endpoints serán '/miapp/modules/CatalogoProductos/Controllers/...'
+		(function initBasePaths(){
+			const currentPath = window.location.pathname.replace(/\\/g,'/');
+			const marker = '/modules/CatalogoProductos/Views/';
+			let basePath = '/';
+			const idx = currentPath.indexOf(marker);
+			if (idx !== -1) {
+				basePath = currentPath.substring(0, idx + 1); // incluye la barra final
+			}
+			window.CATALOGO_BASE = basePath + 'modules/CatalogoProductos/';
+		})();
+
+		const ENDPOINTS = {
+			producto: window.CATALOGO_BASE + 'Controllers/producto_api.php',
+			categorias: window.CATALOGO_BASE + 'Controllers/categoria_api.php',
+			atributos: window.CATALOGO_BASE + 'Controllers/atributo_api.php',
+			imagenes: window.CATALOGO_BASE + 'Controllers/imagenes_producto_api.php',
+			prodCategorias: window.CATALOGO_BASE + 'Controllers/productos_categorias_api.php',
+			prodAtributos: window.CATALOGO_BASE + 'Controllers/productos_atributos_api.php'
+		};
+
+		async function buscarProductos(term) {
+			const q = (term || '').trim();
+			const url = q
+				? `${ENDPOINTS.producto}?buscar=${encodeURIComponent(q)}`
+				: `${ENDPOINTS.producto}?listar=1`;
+			const resp = await fetch(url);
+			const data = await resp.json();
+			// ...render de resultados...
+		}
+		// ====================================================
+
+		// Validación de Nombre en tiempo real
+			// CATEGORÍAS
+			async function cargarCategorias() {
+			const container = document.getElementById('categoriasContainer');
+			if (!state.productoId) {
+				container.innerHTML = '<div class="text-muted">Guarda el producto primero.</div>';
+				return;
+			}
+			try {
+				const resp = await fetch(ENDPOINTS.categorias);
+				const data = await resp.json();
+				if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudieron cargar las categorías');
+				const list = Array.isArray(data.categorias) ? data.categorias : [];
+				if (!list.length) {
+					container.innerHTML = '<div class="text-muted">No hay categorías.</div>';
+					return;
+				}
+				// Render simple lista de checkboxes (sin jerarquía visual compleja)
+				const rows = list.map(cat => {
+					const id = `cat_${cat.id_categoria}`;
+					return `<div class="form-check">
+							<input class="form-check-input" type="checkbox" value="${escapeHTML(cat.id_categoria)}" id="${escapeHTML(id)}">
+							<label class="form-check-label" for="${escapeHTML(id)}">${escapeHTML(cat.nombre)}</label>
+						</div>`;
+				}).join('');
+				container.innerHTML = rows;
+			} catch (err) {
+				container.innerHTML = `<div class="text-danger">Error: ${escapeHTML(err.message)}</div>`;
+			}
+		}
+
+			// ATRIBUTOS
+			async function cargarAtributos() {
+				const tbody = document.querySelector('#tablaAtributos tbody');
+				if (!state.productoId) {
+					tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Guarda el producto primero.</td></tr>';
+					return;
+				}
+				try {
+					const resp = await fetch(ENDPOINTS.atributos);
+					const data = await resp.json();
+					if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudieron cargar los atributos');
+					const list = Array.isArray(data.atributos) ? data.atributos : [];
+					if (!list.length) {
+						tbody.innerHTML = '<tr><td colspan="3" class="text-muted">No hay atributos.</td></tr>';
+						return;
+					}
+					tbody.innerHTML = list.map(a => {
+						const input = `<input class=\"form-control\" type=\"text\" name=\"valor_${a.id_atributo}\" placeholder=\"Valor\" />`;
+						return `<tr>
+								<td>${escapeHTML(a.nombre)}</td>
+								<td>${escapeHTML(a.tipo)}</td>
+								<td>${input}</td>
+							</tr>`;
+					}).join('');
+				} catch (err) {
+					tbody.innerHTML = `<tr><td colspan=\"3\" class=\"text-danger\">Error: ${escapeHTML(err.message)}</td></tr>`;
+				}
+			}
+
+			// IMÁGENES
+			let tablaImagenesDT;
+
+			// INIT ÚNICO
+			document.addEventListener('DOMContentLoaded', () => {
+				// Validación de nombre
+				const nombre = document.getElementById('nombre');
+				const re = /^[\p{L}\p{N}\s.,\-_&]{1,100}$/u; // letras (incluye acentos), números, espacios y . , - _ &
+				function validateNombre() {
+					const value = nombre.value.trim();
+					const valid = re.test(value);
+					nombre.classList.toggle('is-invalid', !valid);
+					return valid;
+				}
+				nombre.addEventListener('input', validateNombre);
+				nombre.addEventListener('blur', validateNombre);
+
+				// Submit Producto
+				const form = document.getElementById('productoForm');
+				form.addEventListener('submit', async (e) => {
+					e.preventDefault();
+					let valid = true;
+					if (!validateNombre()) valid = false;
+
+					const precio = document.getElementById('precio');
+					const stock = document.getElementById('stock');
+					const estado = document.getElementById('estado');
+					const stockMin = document.getElementById('stock_minimo');
+
+					if (!precio.value || Number(precio.value) < 0) { precio.classList.add('is-invalid'); valid = false; } else { precio.classList.remove('is-invalid'); }
+					if (!stock.value || Number(stock.value) < 0)  { stock.classList.add('is-invalid'); valid = false; } else { stock.classList.remove('is-invalid'); }
+					if (!estado.value) { estado.classList.add('is-invalid'); valid = false; } else { estado.classList.remove('is-invalid'); }
+					if (stockMin.value && Number(stockMin.value) < 0) { stockMin.classList.add('is-invalid'); valid = false; } else { stockMin.classList.remove('is-invalid'); }
+
+					if (!valid) return;
+
+					const payload = new FormData();
+					payload.append('nombre', document.getElementById('nombre').value.trim());
+					payload.append('descripcion', document.getElementById('descripcion').value.trim());
+					payload.append('precio', precio.value);
+					payload.append('stock', stock.value);
+					payload.append('stock_minimo', stockMin.value || '0');
+					payload.append('estado', estado.value);
+
+					try {
+						const resp = await fetch(ENDPOINTS.producto, { method: 'POST', body: payload });
+						const data = await resp.json();
+						if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo guardar');
+						state.productoId = data.id;
+						document.getElementById('productoIdText').textContent = String(state.productoId);
+						document.getElementById('productoIdBadge').classList.remove('d-none');
+						// Habilitar tabs
+						['tab-categorias','tab-atributos','tab-imagenes'].forEach(id => {
+							const el = document.getElementById(id);
+							el.classList.remove('disabled');
+							el.removeAttribute('aria-disabled');
+						});
+						document.getElementById('datosAyuda').classList.add('d-none');
+						if (window.bootstrap?.Toast) showToast('Producto guardado correctamente');
+					} catch (err) {
+						alert('Error: ' + err.message);
+					}
+				});
+
+				// Limpiar formulario
+				document.getElementById('btnLimpiar').addEventListener('click', () => {
+					document.getElementById('productoForm').reset();
+					['nombre','precio','stock','stock_minimo','estado'].forEach(id => document.getElementById(id).classList.remove('is-invalid'));
+				});
+
+				// Botones Categorías
+				document.getElementById('btnRefrescarCategorias').addEventListener('click', cargarCategorias);
+				document.getElementById('btnGuardarCategorias').addEventListener('click', async () => {
+					if (!state.productoId) return alert('Primero guarda el producto');
+					const selected = Array.from(document.querySelectorAll('#categoriasContainer input[type="checkbox"]:checked')).map(ch => ch.value);
+					if (!selected.length) return alert('Selecciona al menos una categoría');
+					try {
+						const payload = new URLSearchParams();
+						payload.set('id_producto', String(state.productoId));
+						selected.forEach(idc => payload.append('categorias[]', idc));
+						const resp = await fetch(ENDPOINTS.prodCategorias, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload.toString() });
+						const data = await resp.json();
+						if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo guardar la relación');
+						alert('Categorías guardadas');
+					} catch (err) {
+						alert('Error (configura el endpoint productos_categorias_api.php): ' + err.message);
+					}
+				});
+				// Botones Atributos
+				document.getElementById('btnRefrescarAtributos').addEventListener('click', cargarAtributos);
+				document.getElementById('btnGuardarAtributos').addEventListener('click', async () => {
+					if (!state.productoId) return alert('Primero guarda el producto');
+					const rows = Array.from(document.querySelectorAll('#tablaAtributos tbody tr'));
+					const valores = [];
+					rows.forEach((tr) => {
+						const nombre = tr.children[0].textContent.trim();
+						const tipo = tr.children[1].textContent.trim();
+						const input = tr.querySelector('input');
+						const valor = input ? input.value.trim() : '';
+						const idMatch = input?.name?.match(/valor_(\d+)/);
+						if (idMatch && valor) valores.push({ id_atributo: idMatch[1], valor });
+					});
+					if (!valores.length) return alert('Ingresa al menos un valor');
+					try {
+						const payload = new URLSearchParams();
+						payload.set('id_producto', String(state.productoId));
+						valores.forEach(v => {
+							payload.append('atributos[]', JSON.stringify(v));
+						});
+						const resp = await fetch(ENDPOINTS.prodAtributos, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload.toString() });
+						const data = await resp.json();
+						if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudieron guardar los atributos');
+						alert('Atributos guardados');
+					} catch (err) {
+						alert('Error (configura el endpoint productos_atributos_api.php): ' + err.message);
+					}
+				});
+				// Subida de imágenes (registramos primero el handler para que un fallo previo no lo bloquee)
+				const imgForm = document.getElementById('imagenForm');
+				imgForm.addEventListener('submit', async (e) => {
+					e.preventDefault();
+					if (!state.productoId) return alert('Primero guarda el producto');
+					const fileInput = document.getElementById('archivo_imagen');
+					if (!fileInput.files || !fileInput.files.length) { fileInput.classList.add('is-invalid'); return; }
+					fileInput.classList.remove('is-invalid');
+
+					const fd = new FormData(imgForm);
+					fd.set('id_producto', String(state.productoId));
+					fd.set('principal', document.getElementById('principal').checked ? '1' : '0');
+					try {
+						const resp = await fetch(ENDPOINTS.imagenes, { method: 'POST', body: fd });
+						const data = await resp.json();
+						if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo subir la imagen');
+						// Guardar en estado y renderizar
+						const item = { id_imagen: data.id, archivo: data.archivo, principal: fd.get('principal') === '1' };
+						state.imagenes.push(item);
+						if (window.DataTable && tablaImagenesDT && typeof tablaImagenesDT.row?.add === 'function') {
+							tablaImagenesDT.row.add([
+								escapeHTML(String(item.id_imagen)),
+								`<img src="${escapeHTML(item.archivo)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
+								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(item.archivo)}</span>`,
+								item.principal ? '<span class="badge text-bg-primary">Sí</span>' : 'No'
+							]).draw(false);
+						} else {
+							// Fallback sin DataTables: agrega una fila al tbody
+							const tbody = document.querySelector('#tablaImagenes tbody');
+							const tr = document.createElement('tr');
+							tr.innerHTML = [
+								escapeHTML(String(item.id_imagen)),
+								`<img src="${escapeHTML(item.archivo)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
+								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(item.archivo)}</span>`,
+								item.principal ? '<span class="badge text-bg-primary">Sí</span>' : 'No'
+							].map(td => `<td>${td}</td>`).join('');
+							tbody.appendChild(tr);
+						}
+						imgForm.reset();
+					} catch (err) {
+						alert('Error: ' + err.message);
+					}
+				});
+
+				// DataTable Imágenes (no bloqueante)
+				try {
+					if (window.DataTable) {
+						tablaImagenesDT = new DataTable('#tablaImagenes', {
+							paging: false,
+							searching: false,
+							info: false,
+							language: { url: 'https://cdn.datatables.net/plug-ins/2.0.7/i18n/es-ES.json' }
+						});
+					} else {
+						console.warn('DataTable no disponible; se usará tabla simple');
+					}
+				} catch (err) {
+					console.error('Error inicializando DataTable de imágenes:', err);
+				}
+			});
+
+		// Utilidad opcional para toasts (si el layout tiene toasts de Bootstrap)
+		function showToast(message) {
+			try {
+				const toastEl = document.createElement('div');
+				toastEl.className = 'toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-3';
+				toastEl.setAttribute('role', 'alert');
+				toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${escapeHTML(message)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+				document.body.appendChild(toastEl);
+				const toast = new bootstrap.Toast(toastEl, { delay: 2000 });
+				toast.show();
+				toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+			} catch {}
+		}
+	</script>
+</body>
+</html>
