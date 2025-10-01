@@ -28,15 +28,18 @@ class Producto
         $isNumericId = ctype_digit($term);
         $idExact = $isNumericId ? (int)$term : 0;
 
+        // Escapa comodines para LIKE
         $q = $this->escapeLike($term);
+
         $sql = "SELECT id_producto, nombre, precio, stock, stock_minimo, estado
                   FROM productos
-                 WHERE (nombre LIKE :q ESCAPE '\\'
+                 WHERE (nombre LIKE :q
                         OR (:idExact > 0 AND id_producto = :idExact))
               ORDER BY nombre ASC
                  LIMIT 200";
+
         $st = $this->db->prepare($sql);
-        $st->bindValue(':q', '%'.$q.'%', PDO::PARAM_STR);
+        $st->bindValue(':q', '%' . $q . '%', PDO::PARAM_STR);
         $st->bindValue(':idExact', $idExact, PDO::PARAM_INT);
         $st->execute();
         return $st->fetchAll(PDO::FETCH_ASSOC);
@@ -51,50 +54,13 @@ class Producto
         return $row ?: null;
     }
 
-    public function crear(array $data): int
-    {
-        $st = $this->db->prepare(
-            "INSERT INTO productos (nombre, descripcion, precio, stock, stock_minimo, estado)
-             VALUES (:nombre, :descripcion, :precio, :stock, :stock_minimo, :estado)"
-        );
-        $st->execute([
-            ':nombre'        => $data['nombre'],
-            ':descripcion'   => $data['descripcion'] ?? '',
-            ':precio'        => (float)$data['precio'],
-            ':stock'         => (int)$data['stock'],
-            ':stock_minimo'  => (int)($data['stock_minimo'] ?? 0),
-            ':estado'        => (int)$data['estado'],
-        ]);
-        return (int)$this->db->lastInsertId();
-    }
-
-    public function actualizar(int $id, array $data): bool
-    {
-        $st = $this->db->prepare(
-            "UPDATE productos
-                SET nombre=:nombre, descripcion=:descripcion, precio=:precio,
-                    stock=:stock, stock_minimo=:stock_minimo, estado=:estado
-              WHERE id_producto=:id"
-        );
-        return $st->execute([
-            ':id'            => $id,
-            ':nombre'        => $data['nombre'],
-            ':descripcion'   => $data['descripcion'] ?? '',
-            ':precio'        => (float)$data['precio'],
-            ':stock'         => (int)$data['stock'],
-            ':stock_minimo'  => (int)($data['stock_minimo'] ?? 0),
-            ':estado'        => (int)$data['estado'],
-        ]);
-    }
-
-    public function eliminar(int $id): bool
-    {
-        $st = $this->db->prepare("DELETE FROM productos WHERE id_producto = :id");
-        return $st->execute([':id' => $id]);
-    }
-
     private function escapeLike(string $s): string
     {
-        return strtr($s, ['\\' => '\\\\', '%' => '\%', '_' => '\_']);
+        // Escapa \ % _
+        return strtr($s, [
+            '\\' => '\\\\',
+            '%'  => '\%',
+            '_'  => '\_',
+        ]);
     }
 }
