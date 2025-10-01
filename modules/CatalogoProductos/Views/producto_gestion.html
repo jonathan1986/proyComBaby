@@ -232,15 +232,59 @@
 			prodAtributos: window.CATALOGO_BASE + 'Controllers/productos_atributos_api.php'
 		};
 
-		async function buscarProductos(term) {
-			const q = (term || '').trim();
-			const url = q
-				? `${ENDPOINTS.producto}?buscar=${encodeURIComponent(q)}`
-				: `${ENDPOINTS.producto}?listar=1`;
-			const resp = await fetch(url);
-			const data = await resp.json();
-			// ...render de resultados...
-		}
+		// Buscar productos y mostrar resultados en la tabla del modal
+function renderResultadosProductos(lista) {
+    const tbody = document.querySelector('#tablaResultadosProductos tbody');
+    if (!Array.isArray(lista) || !lista.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sin resultados</td></tr>';
+        return;
+    }
+    tbody.innerHTML = lista.map(p => {
+        const id = escapeHTML(String(p.id_producto ?? p.id ?? ''));
+        const nombre = escapeHTML(String(p.nombre ?? ''));
+        return `<tr>
+            <td>${id}</td>
+            <td>${nombre}</td>
+            <td><button class="btn btn-sm btn-primary" data-id="${id}" data-action="seleccionar">Editar</button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function buscarProductos(term) {
+    const q = (term || '').trim();
+    const url = q
+        ? `${ENDPOINTS.producto}?buscar=${encodeURIComponent(q)}`
+        : `${ENDPOINTS.producto}?listar=1`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const lista =
+        (Array.isArray(data.productos) && data.productos) ||
+        (Array.isArray(data.data) && data.data) ||
+        (Array.isArray(data) && data) || [];
+    renderResultadosProductos(lista);
+}
+
+// Asocia el botón Buscar al evento click
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnBuscarProducto').addEventListener('click', () => {
+        buscarProductos(document.getElementById('qProducto').value);
+    });
+    document.getElementById('qProducto').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            buscarProductos(e.target.value);
+        }
+    });
+    // Delegación para seleccionar producto de la tabla
+    document.querySelector('#tablaResultadosProductos tbody').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="seleccionar"]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        // Aquí puedes llamar a cargarProducto(id) o redirigir con ?id=
+        alert('Seleccionaste producto ID: ' + id);
+    });
+});
+
 		// ====================================================
 
 		// Validación de Nombre en tiempo real

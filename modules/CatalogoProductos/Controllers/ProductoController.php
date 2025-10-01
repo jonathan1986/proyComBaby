@@ -13,17 +13,28 @@ class ProductoController
         $this->productoModel = new Producto($db);
     }
 
+    public function listar(): array
+    {
+        return $this->productoModel->listar();
+    }
+
+    public function buscar(string $term): array
+    {
+        $term = mb_substr(trim($term), 0, 100);
+        return $this->productoModel->buscar($term);
+    }
+
+    public function obtener(int $id): ?array
+    {
+        return $this->productoModel->obtenerPorId($id);
+    }
+
     public function crear(array $data): int
     {
         // Validación backend
         $this->validar($data);
         $data = $this->normalizar($data);
         return $this->productoModel->crear($data);
-    }
-
-    public function obtener(int $id): ?array
-    {
-        return $this->productoModel->obtenerPorId($id);
     }
 
     public function actualizar(int $id, array $data): bool
@@ -36,11 +47,6 @@ class ProductoController
     public function eliminar(int $id): bool
     {
         return $this->productoModel->eliminar($id);
-    }
-
-    public function buscar(array $filtros): array
-    {
-        return $this->productoModel->buscar($filtros);
     }
 
     private function validar(array $data): void

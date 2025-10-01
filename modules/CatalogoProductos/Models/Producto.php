@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Modules\CatalogoProductos\Models;
 
 use PDO;
@@ -7,79 +9,92 @@ class Producto
 {
     private PDO $db;
 
-    public function __construct(PDO $db)
+    public function __construct(PDO $pdo)
     {
-        $this->db = $db;
+        $this->db = $pdo;
     }
 
-    public function crear(array $data): int
+    public function listar(): array
     {
-        $sql = "INSERT INTO productos (nombre, descripcion, precio, stock, stock_minimo, estado) VALUES (:nombre, :descripcion, :precio, :stock, :stock_minimo, :estado)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            ':nombre' => htmlspecialchars($data['nombre'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            ':descripcion' => htmlspecialchars($data['descripcion'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            ':precio' => $data['precio'],
-            ':stock' => $data['stock'],
-            ':stock_minimo' => $data['stock_minimo'] ?? 0,
-            ':estado' => $data['estado']
-        ]);
-        return (int)$this->db->lastInsertId();
+        $sql = "SELECT id_producto, nombre, precio, stock, stock_minimo, estado
+                  FROM productos
+              ORDER BY id_producto DESC
+                 LIMIT 200";
+        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function buscar(string $term): array
+    {
+        $isNumericId = ctype_digit($term);
+        $idExact = $isNumericId ? (int)$term : 0;
+
+        $q = $this->escapeLike($term);
+        $sql = "SELECT id_producto, nombre, precio, stock, stock_minimo, estado
+                  FROM productos
+                 WHERE (nombre LIKE :q ESCAPE '\\'
+                        OR (:idExact > 0 AND id_producto = :idExact))
+              ORDER BY nombre ASC
+                 LIMIT 200";
+        $st = $this->db->prepare($sql);
+        $st->bindValue(':q', '%'.$q.'%', PDO::PARAM_STR);
+        $st->bindValue(':idExact', $idExact, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function obtenerPorId(int $id): ?array
     {
-        $sql = "SELECT * FROM productos WHERE id_producto = :id";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':id' => $id]);
-        $producto = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $producto ?: null;
+        $st = $this->db->prepare("SELECT * FROM productos WHERE id_producto = :id LIMIT 1");
+        $st->bindValue(':id', $id, PDO::PARAM_INT);
+        $st->execute();
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function crear(array $data): int
+    {
+        $st = $this->db->prepare(
+            "INSERT INTO productos (nombre, descripcion, precio, stock, stock_minimo, estado)
+             VALUES (:nombre, :descripcion, :precio, :stock, :stock_minimo, :estado)"
+        );
+        $st->execute([
+            ':nombre'        => $data['nombre'],
+            ':descripcion'   => $data['descripcion'] ?? '',
+            ':precio'        => (float)$data['precio'],
+            ':stock'         => (int)$data['stock'],
+            ':stock_minimo'  => (int)($data['stock_minimo'] ?? 0),
+            ':estado'        => (int)$data['estado'],
+        ]);
+        return (int)$this->db->lastInsertId();
     }
 
     public function actualizar(int $id, array $data): bool
     {
-        $sql = "UPDATE productos SET nombre = :nombre, descripcion = :descripcion, precio = :precio, stock = :stock, stock_minimo = :stock_minimo, estado = :estado WHERE id_producto = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            ':id' => $id,
-            ':nombre' => htmlspecialchars($data['nombre'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            ':descripcion' => htmlspecialchars($data['descripcion'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            ':precio' => $data['precio'],
-            ':stock' => $data['stock'],
-            ':stock_minimo' => $data['stock_minimo'] ?? 0,
-            ':estado' => $data['estado']
+        $st = $this->db->prepare(
+            "UPDATE productos
+                SET nombre=:nombre, descripcion=:descripcion, precio=:precio,
+                    stock=:stock, stock_minimo=:stock_minimo, estado=:estado
+              WHERE id_producto=:id"
+        );
+        return $st->execute([
+            ':id'            => $id,
+            ':nombre'        => $data['nombre'],
+            ':descripcion'   => $data['descripcion'] ?? '',
+            ':precio'        => (float)$data['precio'],
+            ':stock'         => (int)$data['stock'],
+            ':stock_minimo'  => (int)($data['stock_minimo'] ?? 0),
+            ':estado'        => (int)$data['estado'],
         ]);
     }
 
     public function eliminar(int $id): bool
     {
-        $sql = "DELETE FROM productos WHERE id_producto = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([':id' => $id]);
+        $st = $this->db->prepare("DELETE FROM productos WHERE id_producto = :id");
+        return $st->execute([':id' => $id]);
     }
 
-    public function buscar(array $filtros): array
+    private function escapeLike(string $s): string
     {
-        $sql = "SELECT p.* FROM productos p WHERE 1=1";
-        $params = [];
-        if (!empty($filtros['nombre'])) {
-            $sql .= " AND p.nombre LIKE :nombre";
-            $params[':nombre'] = '%' . $filtros['nombre'] . '%';
-        }
-        if (!empty($filtros['categoria'])) {
-            $sql .= " AND EXISTS (SELECT 1 FROM productos_categorias pc WHERE pc.id_producto = p.id_producto AND pc.id_categoria = :categoria)";
-            $params[':categoria'] = $filtros['categoria'];
-        }
-        if (!empty($filtros['precio_min'])) {
-            $sql .= " AND p.precio >= :precio_min";
-            $params[':precio_min'] = $filtros['precio_min'];
-        }
-        if (!empty($filtros['precio_max'])) {
-            $sql .= " AND p.precio <= :precio_max";
-            $params[':precio_max'] = $filtros['precio_max'];
-        }
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return strtr($s, ['\\' => '\\\\', '%' => '\%', '_' => '\_']);
     }
 }
