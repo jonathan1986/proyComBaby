@@ -19,6 +19,9 @@
 			<h1 class="h3 m-0">Producto - Gestión</h1>
 			<div class="d-flex align-items-center gap-2">
 				<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBuscarProducto">Buscar producto</button>
+				<button type="button" class="btn btn-success btn-sm d-flex align-items-center gap-1" id="btnNuevoProducto" title="Añadir nuevo producto">
+					<span class="bi bi-plus-lg" aria-hidden="true"></span> Añadir
+				</button>
 				<span id="productoIdBadge" class="badge text-bg-secondary d-none">ID: <span id="productoIdText"></span></span>
 			</div>
 		</div>
@@ -223,6 +226,7 @@
 	</div>
 
 	<!-- Scripts: Bootstrap + DataTables + Lógica de la página -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 	<script src="https://cdn.datatables.net/v/bs5/dt-2.0.7/datatables.min.js"></script>
 
@@ -272,6 +276,42 @@
 			prodProveedores: window.CATALOGO_BASE + 'Controllers/productos_proveedores_api.php'
 		};
 
+		// ===== PROVEEDORES (global: estado y loaders) =====
+		// Mover a ámbito global evita errores de referencia cuando cargarProducto() se ejecuta antes de DOMContentLoaded.
+		const asignados = new Map(); // id -> { id, nombre }
+
+		function renderAsignados() {
+			const cont = document.getElementById('listaProveedoresAsignados');
+			if (!cont) return;
+			if (!asignados.size) { cont.innerHTML = '<span class="text-muted">Sin proveedores asignados</span>'; return; }
+			cont.innerHTML = Array.from(asignados.values()).map(p => {
+				const id = escapeHTML(String(p.id));
+				const nombre = escapeHTML(String(p.nombre));
+				return `<span class="badge text-bg-secondary d-inline-flex align-items-center gap-2" data-id="${id}">
+					${id} - ${nombre}
+					<button type="button" class="btn btn-sm btn-outline-light" data-action="quitar" data-id="${id}">x</button>
+				</span>`;
+			}).join('');
+		}
+
+		window.cargarProveedoresAsignados = async function() {
+			if (!state.productoId) return;
+			try {
+				const resp = await fetch(`${ENDPOINTS.prodProveedores}?id_producto=${encodeURIComponent(String(state.productoId))}`);
+				const data = await resp.json();
+				const lista = Array.isArray(data.proveedores) ? data.proveedores : [];
+				asignados.clear();
+				lista.forEach(p => {
+					const id = String(p.id_proveedor ?? p.id ?? '');
+					if (!id) return;
+					asignados.set(id, { id, nombre: p.nombre ?? '' });
+				});
+				renderAsignados();
+			} catch (err) {
+				console.warn('No se pudieron cargar proveedores asignados (puede no existir el endpoint aún).');
+			}
+		}
+
 		// Buscar productos y mostrar resultados en la tabla del modal
 function renderResultadosProductos(lista) {
     const tbody = document.querySelector('#tablaResultadosProductos tbody');
@@ -316,13 +356,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     // Delegación para seleccionar producto de la tabla
-    document.querySelector('#tablaResultadosProductos tbody').addEventListener('click', (e) => {
-        const btn = e.target.closest('button[data-action="seleccionar"]');
-        if (!btn) return;
-        const id = btn.getAttribute('data-id');
-        // Aquí puedes llamar a cargarProducto(id) o redirigir con ?id=
-        alert('Seleccionaste producto ID: ' + id);
-    });
+	document.querySelector('#tablaResultadosProductos tbody').addEventListener('click', (e) => {
+		const btn = e.target.closest('button[data-action="seleccionar"]');
+		if (!btn) return;
+		const id = btn.getAttribute('data-id');
+		if (!id) return;
+		cargarProducto(id);
+	});
 });
 
 		// ====================================================
@@ -336,19 +376,30 @@ document.addEventListener('DOMContentLoaded', () => {
 				return;
 			}
 			try {
-				const resp = await fetch(ENDPOINTS.categorias);
-				const data = await resp.json();
+							// Obtener todas las categorías
+							const resp = await fetch(ENDPOINTS.categorias);
+							const data = await resp.json();
 				if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudieron cargar las categorías');
 				const list = Array.isArray(data.categorias) ? data.categorias : [];
 				if (!list.length) {
 					container.innerHTML = '<div class="text-muted">No hay categorías.</div>';
 					return;
 				}
+							// Obtener categorías asignadas al producto
+							let asignadas = new Set();
+							try {
+								const r2 = await fetch(`${ENDPOINTS.prodCategorias}?id_producto=${encodeURIComponent(String(state.productoId))}`);
+								const d2 = await r2.json();
+								if (r2.ok && d2.success && Array.isArray(d2.categorias)) {
+									asignadas = new Set(d2.categorias.map(x => String(x)));
+								}
+							} catch {}
 				// Render simple lista de checkboxes (sin jerarquía visual compleja)
 				const rows = list.map(cat => {
 					const id = `cat_${cat.id_categoria}`;
-					return `<div class="form-check">
-							<input class="form-check-input" type="checkbox" value="${escapeHTML(cat.id_categoria)}" id="${escapeHTML(id)}">
+								const checked = asignadas.has(String(cat.id_categoria)) ? 'checked' : '';
+								return `<div class="form-check">
+										<input class="form-check-input" type="checkbox" value="${escapeHTML(cat.id_categoria)}" id="${escapeHTML(id)}" ${checked}>
 							<label class="form-check-label" for="${escapeHTML(id)}">${escapeHTML(cat.nombre)}</label>
 						</div>`;
 				}).join('');
@@ -366,16 +417,26 @@ document.addEventListener('DOMContentLoaded', () => {
 					return;
 				}
 				try {
-					const resp = await fetch(ENDPOINTS.atributos);
-					const data = await resp.json();
+								const resp = await fetch(ENDPOINTS.atributos);
+								const data = await resp.json();
 					if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudieron cargar los atributos');
 					const list = Array.isArray(data.atributos) ? data.atributos : [];
 					if (!list.length) {
 						tbody.innerHTML = '<tr><td colspan="3" class="text-muted">No hay atributos.</td></tr>';
 						return;
 					}
+								// Valores asignados al producto
+								let valores = new Map();
+								try {
+									const r2 = await fetch(`${ENDPOINTS.prodAtributos}?id_producto=${encodeURIComponent(String(state.productoId))}`);
+									const d2 = await r2.json();
+									if (r2.ok && d2.success && Array.isArray(d2.atributos)) {
+										d2.atributos.forEach(a => valores.set(String(a.id_atributo), String(a.valor ?? '')));
+									}
+								} catch {}
 					tbody.innerHTML = list.map(a => {
-						const input = `<input class=\"form-control\" type=\"text\" name=\"valor_${a.id_atributo}\" placeholder=\"Valor\" />`;
+									const val = valores.get(String(a.id_atributo)) ?? '';
+									const input = `<input class=\"form-control\" type=\"text\" name=\"valor_${a.id_atributo}\" placeholder=\"Valor\" value=\"${escapeHTML(val)}\" />`;
 						return `<tr>
 								<td>${escapeHTML(a.nombre)}</td>
 								<td>${escapeHTML(a.tipo)}</td>
@@ -387,11 +448,127 @@ document.addEventListener('DOMContentLoaded', () => {
 				}
 			}
 
+			// Cargar imágenes asignadas
+			async function cargarImagenes() {
+				const tbody = document.querySelector('#tablaImagenes tbody');
+				if (!state.productoId) { if (tbody) tbody.innerHTML = ''; return; }
+				try {
+					const resp = await fetch(`${ENDPOINTS.imagenes}?id_producto=${encodeURIComponent(String(state.productoId))}`);
+					const data = await resp.json();
+					if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudieron cargar las imágenes');
+					const list = Array.isArray(data.imagenes) ? data.imagenes : [];
+					state.imagenes = list.map(x => ({ id_imagen: x.id_imagen, archivo: x.archivo, principal: !!x.principal }));
+					// Limpiar tabla
+					if (window.DataTable && tablaImagenesDT && typeof tablaImagenesDT.clear === 'function') {
+						tablaImagenesDT.clear().draw();
+						state.imagenes.forEach(item => {
+							const imgUrl = (window.APP_BASE || '/') + String(item.archivo).replace(/^\/+/, '');
+							tablaImagenesDT.row.add([
+								escapeHTML(String(item.id_imagen)),
+								`<img src="${escapeHTML(imgUrl)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
+								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(imgUrl)}</span>`,
+								item.principal ? '<span class="badge text-bg-primary">Sí</span>' : 'No'
+							]).draw(false);
+						});
+					} else if (tbody) {
+						tbody.innerHTML = '';
+						state.imagenes.forEach(item => {
+							const tr = document.createElement('tr');
+							const imgUrl = (window.APP_BASE || '/') + String(item.archivo).replace(/^\/+/, '');
+							tr.innerHTML = [
+								escapeHTML(String(item.id_imagen)),
+								`<img src="${escapeHTML(imgUrl)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
+								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(imgUrl)}</span>`,
+								item.principal ? '<span class="badge text-bg-primary">Sí</span>' : 'No'
+							].map(td => `<td>${td}</td>`).join('');
+							tbody.appendChild(tr);
+						});
+					}
+				} catch (err) {
+					if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Error: ${escapeHTML(err.message)}</td></tr>`;
+				}
+			}
+
+			// Cargar un producto completo para edición
+			async function cargarProducto(id) {
+				try {
+					const resp = await fetch(`${ENDPOINTS.producto}?id=${encodeURIComponent(String(id))}`);
+					const data = await resp.json();
+					if (!resp.ok || !data.success || !data.producto) throw new Error(data.error || 'No se pudo obtener el producto');
+					const p = data.producto;
+					state.productoId = p.id_producto || id;
+					// Rellenar formulario
+					document.getElementById('nombre').value = p.nombre ?? '';
+					document.getElementById('descripcion').value = p.descripcion ?? '';
+					document.getElementById('precio').value = p.precio ?? '';
+					document.getElementById('stock').value = p.stock ?? '';
+					document.getElementById('stock_minimo').value = p.stock_minimo ?? '';
+					document.getElementById('estado').value = (p.estado === 1 || p.estado === '1' || p.estado === 'activo') ? 'activo' : 'inactivo';
+					['nombre','precio','stock','stock_minimo','estado'].forEach(id => document.getElementById(id).classList.remove('is-invalid'));
+					// Badge
+					document.getElementById('productoIdText').textContent = String(state.productoId);
+					document.getElementById('productoIdBadge').classList.remove('d-none');
+					// Habilitar tabs
+					['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+						const el = document.getElementById(id);
+						el.classList.remove('disabled');
+						el.removeAttribute('aria-disabled');
+					});
+					document.getElementById('datosAyuda').classList.add('d-none');
+					// Cargar datos relacionados
+					await Promise.all([
+						cargarCategorias(),
+						cargarAtributos(),
+						window.cargarProveedoresAsignados?.(),
+						cargarImagenes()
+					]);
+					// Cerrar modal si está abierto
+					const modalEl = document.getElementById('modalBuscarProducto');
+					if (modalEl && window.bootstrap?.Modal) {
+						const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+						inst.hide();
+					}
+				} catch (err) {
+					alert('Error al cargar producto: ' + err.message);
+				}
+			}
+
 			// IMÁGENES
 			let tablaImagenesDT;
 
 			// INIT ÚNICO
 			document.addEventListener('DOMContentLoaded', () => {
+				// Botón Añadir nuevo producto
+				document.getElementById('btnNuevoProducto').addEventListener('click', () => {
+					// Limpiar formulario principal
+					document.getElementById('productoForm').reset();
+					['nombre','precio','stock','stock_minimo','estado'].forEach(id => document.getElementById(id).classList.remove('is-invalid'));
+					// Limpiar badge de ID
+					document.getElementById('productoIdBadge').classList.add('d-none');
+					document.getElementById('productoIdText').textContent = '';
+					// Deshabilitar tabs
+					['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+						const el = document.getElementById(id);
+						el.classList.add('disabled');
+						el.setAttribute('aria-disabled', 'true');
+					});
+					// Limpiar contenido de los tabs
+					document.getElementById('categoriasContainer').innerHTML = '<div class="text-muted">Guarda el producto primero.</div>';
+					document.querySelector('#tablaAtributos tbody').innerHTML = '<tr><td colspan="3" class="text-muted">Guarda el producto primero.</td></tr>';
+					document.getElementById('listaProveedoresAsignados').innerHTML = '<span class="text-muted">Sin proveedores asignados</span>';
+					document.querySelector('#tablaResultadosProveedores tbody').innerHTML = '<tr><td colspan="3" class="text-muted">Sin resultados</td></tr>';
+					// Limpiar imágenes
+					const tbodyImg = document.querySelector('#tablaImagenes tbody');
+					if (tbodyImg) tbodyImg.innerHTML = '';
+					if (window.DataTable && tablaImagenesDT && typeof tablaImagenesDT.clear === 'function') {
+						tablaImagenesDT.clear().draw();
+					}
+					// Limpiar estado
+					state.productoId = null;
+					state.imagenes = [];
+					// Mostrar ayuda
+					document.getElementById('datosAyuda').classList.remove('d-none');
+				});
 				// Validación de nombre
 				const nombre = document.getElementById('nombre');
 				const re = /^[\p{L}\p{N}\s.,\-_&]{1,100}$/u; // letras (incluye acentos), números, espacios y . , - _ &
@@ -410,7 +587,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				const tabProveedores = document.getElementById('tab-proveedores');
 				tabCategorias?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarCategorias(); });
 				tabAtributos?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarAtributos(); });
-				tabProveedores?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarProveedoresAsignados?.(); });
+				tabProveedores?.addEventListener('shown.bs.tab', () => {
+					if (state.productoId) {
+						window.cargarProveedoresAsignados?.();
+						// Refresca la tabla de resultados para alinear los botones Agregar/Quitar con los asignados
+						const qv = document.getElementById('qProveedor')?.value || '';
+						try { if (typeof buscarProveedores === 'function') buscarProveedores(qv); } catch {}
+					}
+				});
 
 				// Submit Producto
 				const form = document.getElementById('productoForm');
@@ -431,33 +615,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
 					if (!valid) return;
 
-					const payload = new FormData();
-					payload.append('nombre', document.getElementById('nombre').value.trim());
-					payload.append('descripcion', document.getElementById('descripcion').value.trim());
-					payload.append('precio', precio.value);
-					payload.append('stock', stock.value);
-					payload.append('stock_minimo', stockMin.value || '0');
-					payload.append('estado', estado.value);
+					// Usamos x-www-form-urlencoded para ser compatibles con producto_api.php (parse_str en PUT)
+					const payload = new URLSearchParams();
+					payload.set('nombre', document.getElementById('nombre').value.trim());
+					payload.set('descripcion', document.getElementById('descripcion').value.trim());
+					payload.set('precio', precio.value);
+					payload.set('stock', stock.value);
+					payload.set('stock_minimo', stockMin.value || '0');
+					payload.set('estado', estado.value);
 
 					try {
-						const resp = await fetch(ENDPOINTS.producto, { method: 'POST', body: payload });
-						const data = await resp.json();
-						if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo guardar');
-						state.productoId = data.id;
-						document.getElementById('productoIdText').textContent = String(state.productoId);
-						document.getElementById('productoIdBadge').classList.remove('d-none');
-						// Habilitar tabs
-						['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
-							const el = document.getElementById(id);
-							el.classList.remove('disabled');
-							el.removeAttribute('aria-disabled');
-						});
-						document.getElementById('datosAyuda').classList.add('d-none');
-						// Precargar categorías y atributos ahora que ya hay ID
-						cargarCategorias();
-						cargarAtributos();
-						cargarProveedoresAsignados?.();
-						if (window.bootstrap?.Toast) showToast('Producto guardado correctamente');
+						let resp, data;
+						if (state.productoId) {
+							// Actualizar existente via PUT ?id=...
+							resp = await fetch(`${ENDPOINTS.producto}?id=${encodeURIComponent(String(state.productoId))}`,
+								{ method: 'PUT', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload.toString() }
+							);
+							data = await resp.json();
+							if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo actualizar');
+							// Mantener badge y tabs habilitados
+							document.getElementById('productoIdText').textContent = String(state.productoId);
+							document.getElementById('productoIdBadge').classList.remove('d-none');
+							['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+								const el = document.getElementById(id);
+								el.classList.remove('disabled');
+								el.removeAttribute('aria-disabled');
+							});
+							document.getElementById('datosAyuda').classList.add('d-none');
+							if (window.bootstrap?.Toast) showToast('Producto actualizado correctamente');
+						} else {
+							// Crear nuevo via POST
+							resp = await fetch(ENDPOINTS.producto,
+								{ method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload.toString() }
+							);
+							data = await resp.json();
+							if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo guardar');
+							state.productoId = data.id;
+							document.getElementById('productoIdText').textContent = String(state.productoId);
+							document.getElementById('productoIdBadge').classList.remove('d-none');
+							['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+								const el = document.getElementById(id);
+								el.classList.remove('disabled');
+								el.removeAttribute('aria-disabled');
+							});
+							document.getElementById('datosAyuda').classList.add('d-none');
+							// Precargar categorías y atributos ahora que ya hay ID
+							cargarCategorias();
+							cargarAtributos();
+							window.cargarProveedoresAsignados?.();
+							if (window.bootstrap?.Toast) showToast('Producto guardado correctamente');
+						}
 					} catch (err) {
 						alert('Error: ' + err.message);
 					}
@@ -470,22 +677,6 @@ document.addEventListener('DOMContentLoaded', () => {
 				});
 
 				// ===== PROVEEDORES =====
-				const asignados = new Map(); // id -> { id, nombre }
-
-				function renderAsignados() {
-					const cont = document.getElementById('listaProveedoresAsignados');
-					if (!cont) return;
-					if (!asignados.size) { cont.innerHTML = '<span class="text-muted">Sin proveedores asignados</span>'; return; }
-					cont.innerHTML = Array.from(asignados.values()).map(p => {
-						const id = escapeHTML(String(p.id));
-						const nombre = escapeHTML(String(p.nombre));
-						return `<span class="badge text-bg-secondary d-inline-flex align-items-center gap-2" data-id="${id}">
-							${id} - ${nombre}
-							<button type="button" class="btn btn-sm btn-outline-light" data-action="quitar" data-id="${id}">x</button>
-						</span>`;
-					}).join('');
-				}
-
 				function renderResultadosProveedores(lista) {
 					const tbody = document.querySelector('#tablaResultadosProveedores tbody');
 					if (!tbody) return;
@@ -521,23 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					}
 				}
 
-				async function cargarProveedoresAsignados() {
-					if (!state.productoId) return;
-					try {
-						const resp = await fetch(`${ENDPOINTS.prodProveedores}?id_producto=${encodeURIComponent(String(state.productoId))}`);
-						const data = await resp.json();
-						const lista = Array.isArray(data.proveedores) ? data.proveedores : [];
-						asignados.clear();
-						lista.forEach(p => {
-							const id = String(p.id_proveedor ?? p.id ?? '');
-							if (!id) return;
-							asignados.set(id, { id, nombre: p.nombre ?? '' });
-						});
-						renderAsignados();
-					} catch (err) {
-						console.warn('No se pudieron cargar proveedores asignados (puede no existir el endpoint aún).');
-					}
-				}
+				// window.cargarProveedoresAsignados ya está definido en ámbito global
 
 				const btnBuscarProv = document.getElementById('btnBuscarProveedor');
 				btnBuscarProv?.addEventListener('click', () => {

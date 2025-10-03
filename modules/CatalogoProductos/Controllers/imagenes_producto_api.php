@@ -14,6 +14,16 @@ $pdo = new PDO($dsn, $config['user'], $config['password'], [
 
 $controller = new ImagenesProductoController($pdo);
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $id_producto = isset($_GET['id_producto']) ? (int)$_GET['id_producto'] : 0;
+    if ($id_producto <= 0) { http_response_code(400); echo json_encode(['success' => false, 'error' => 'id_producto requerido']); exit; }
+    $st = $pdo->prepare('SELECT id_imagen, archivo_imagen AS archivo, principal FROM imagenes_productos WHERE id_producto = :idp AND estado = 1 ORDER BY id_imagen ASC');
+    $st->execute([':idp' => $id_producto]);
+    $rows = $st->fetchAll();
+    echo json_encode(['success' => true, 'imagenes' => $rows]);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id_producto = isset($_POST['id_producto']) ? (int)$_POST['id_producto'] : 0;
     $principal = isset($_POST['principal']) ? (int)$_POST['principal'] : 0;
