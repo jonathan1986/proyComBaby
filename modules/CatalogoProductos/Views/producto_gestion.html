@@ -404,6 +404,14 @@ document.addEventListener('DOMContentLoaded', () => {
 				nombre.addEventListener('input', validateNombre);
 				nombre.addEventListener('blur', validateNombre);
 
+				// Cargar al mostrar cada tab
+				const tabCategorias = document.getElementById('tab-categorias');
+				const tabAtributos = document.getElementById('tab-atributos');
+				const tabProveedores = document.getElementById('tab-proveedores');
+				tabCategorias?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarCategorias(); });
+				tabAtributos?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarAtributos(); });
+				tabProveedores?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarProveedoresAsignados?.(); });
+
 				// Submit Producto
 				const form = document.getElementById('productoForm');
 				form.addEventListener('submit', async (e) => {
@@ -445,6 +453,9 @@ document.addEventListener('DOMContentLoaded', () => {
 							el.removeAttribute('aria-disabled');
 						});
 						document.getElementById('datosAyuda').classList.add('d-none');
+						// Precargar categorías y atributos ahora que ya hay ID
+						cargarCategorias();
+						cargarAtributos();
 						cargarProveedoresAsignados?.();
 						if (window.bootstrap?.Toast) showToast('Producto guardado correctamente');
 					} catch (err) {

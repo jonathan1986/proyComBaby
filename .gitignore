@@ -1,0 +1,9 @@
+# Ignore runtime/uploads and container logs
+uploads/productos/
+
+docker/logs/
+
+# Keep directory structure with .gitkeep if needed
+!uploads/.gitkeep
+!uploads/productos/.gitkeep
+!docker/logs/.gitkeep
