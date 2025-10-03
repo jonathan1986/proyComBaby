@@ -66,8 +66,26 @@ class Proveedor
 
     public function listar(): array
     {
-        $sql = "SELECT * FROM proveedores ORDER BY nombre";
+        $sql = "SELECT id_proveedor, nombre, contacto, telefono, email, direccion, ciudad, ruc, estado FROM proveedores ORDER BY nombre LIMIT 200";
         $stmt = $this->db->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function buscar(string $term): array
+    {
+        $term = trim($term);
+        if ($term === '') return [];
+        // Escapar comodines % y _ y barras invertidas
+        $safe = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
+        $like = "%{$safe}%";
+        $sql = "SELECT id_proveedor, nombre, contacto, telefono, email, direccion, ciudad, ruc, estado
+                FROM proveedores
+                WHERE nombre LIKE :q
+                ORDER BY nombre
+                LIMIT 200";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':q', $like, PDO::PARAM_STR);
+        $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

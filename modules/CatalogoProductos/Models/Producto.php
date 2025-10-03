@@ -54,6 +54,46 @@ class Producto
         return $row ?: null;
     }
 
+    public function crear(array $data): int
+    {
+        $sql = "INSERT INTO productos (nombre, descripcion, precio, stock, stock_minimo, estado)
+                VALUES (:nombre, :descripcion, :precio, :stock, :stock_minimo, :estado)";
+        $st = $this->db->prepare($sql);
+        $st->execute([
+            ':nombre'        => htmlspecialchars($data['nombre'] ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            ':descripcion'   => htmlspecialchars($data['descripcion'] ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            ':precio'        => (float)($data['precio'] ?? 0),
+            ':stock'         => (int)($data['stock'] ?? 0),
+            ':stock_minimo'  => (int)($data['stock_minimo'] ?? 0),
+            ':estado'        => (int)($data['estado'] ?? 0),
+        ]);
+        return (int)$this->db->lastInsertId();
+    }
+
+    public function actualizar(int $id, array $data): bool
+    {
+        $sql = "UPDATE productos
+                   SET nombre=:nombre, descripcion=:descripcion, precio=:precio,
+                       stock=:stock, stock_minimo=:stock_minimo, estado=:estado
+                 WHERE id_producto=:id";
+        $st = $this->db->prepare($sql);
+        return $st->execute([
+            ':id'            => $id,
+            ':nombre'        => htmlspecialchars($data['nombre'] ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            ':descripcion'   => htmlspecialchars($data['descripcion'] ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            ':precio'        => (float)($data['precio'] ?? 0),
+            ':stock'         => (int)($data['stock'] ?? 0),
+            ':stock_minimo'  => (int)($data['stock_minimo'] ?? 0),
+            ':estado'        => (int)($data['estado'] ?? 0),
+        ]);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        $st = $this->db->prepare("DELETE FROM productos WHERE id_producto = :id");
+        return $st->execute([':id' => $id]);
+    }
+
     private function escapeLike(string $s): string
     {
         // Escapa \ % _

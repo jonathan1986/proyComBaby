@@ -40,6 +40,11 @@ class ProveedorController
         return $this->proveedorModel->listar();
     }
 
+    public function buscar(string $term): array
+    {
+        return $this->proveedorModel->buscar($term);
+    }
+
     private function validar(array $data): void
     {
         $data['nombre'] = trim(strip_tags($data['nombre']));

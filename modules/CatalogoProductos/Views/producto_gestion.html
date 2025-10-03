@@ -34,6 +34,9 @@
 				<button class="nav-link disabled" id="tab-atributos" data-bs-toggle="tab" data-bs-target="#pane-atributos" type="button" role="tab" aria-disabled="true">Atributos</button>
 			</li>
 			<li class="nav-item" role="presentation">
+				<button class="nav-link disabled" id="tab-proveedores" data-bs-toggle="tab" data-bs-target="#pane-proveedores" type="button" role="tab" aria-disabled="true">Proveedores</button>
+			</li>
+			<li class="nav-item" role="presentation">
 				<button class="nav-link disabled" id="tab-imagenes" data-bs-toggle="tab" data-bs-target="#pane-imagenes" type="button" role="tab" aria-disabled="true">Imágenes</button>
 			</li>
 		</ul>
@@ -80,7 +83,7 @@
 						<button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
 					</div>
 				</form>
-				<div class="alert alert-info mt-3" id="datosAyuda">Primero guarda los datos del producto para habilitar Categorías, Atributos e Imágenes.</div>
+				<div class="alert alert-info mt-3" id="datosAyuda">Primero guarda los datos del producto para habilitar Categorías, Atributos, Proveedores e Imágenes.</div>
 			</div>
 
 			<!-- TAB: CATEGORÍAS -->
@@ -120,6 +123,38 @@
 					<button class="btn btn-success" id="btnGuardarAtributos">Guardar atributos</button>
 					<small class="text-muted d-block mt-1">Nota: Requiere un endpoint para N:M (productos_atributos_api.php).</small>
 				</div>
+			</div>
+
+			<!-- TAB: PROVEEDORES -->
+			<div class="tab-pane fade" id="pane-proveedores" role="tabpanel" aria-labelledby="tab-proveedores">
+				<div class="row mt-3 g-3">
+					<div class="col-12">
+						<h2 class="h5 m-0">Buscar y asignar proveedores</h2>
+					</div>
+					<div class="col-md-8">
+						<div class="input-group">
+							<input type="text" id="qProveedor" class="form-control" placeholder="Nombre del proveedor" maxlength="100" />
+							<button class="btn btn-primary" id="btnBuscarProveedor">Buscar</button>
+						</div>
+						<small class="text-muted">Ingresa al menos 1 carácter (máx. 100). Se muestran hasta 200 resultados.</small>
+					</div>
+					<div class="col-12">
+						<div class="table-responsive">
+							<table class="table table-hover" id="tablaResultadosProveedores">
+								<thead><tr><th>ID</th><th>Nombre</th><th>Seleccionar</th></tr></thead>
+								<tbody></tbody>
+							</table>
+						</div>
+					</div>
+					<div class="col-12">
+						<h3 class="h6">Proveedores asignados</h3>
+						<div id="listaProveedoresAsignados" class="d-flex flex-wrap gap-2"></div>
+						<div class="mt-2">
+							<button class="btn btn-success" id="btnGuardarProveedores">Guardar relación</button>
+						</div>
+					</div>
+				</div>
+				<small class="text-muted d-block mt-2">Nota: requiere endpoints de proveedor y relación producto–proveedor.</small>
 			</div>
 
 			<!-- TAB: IMÁGENES -->
@@ -220,6 +255,9 @@
 			if (idx !== -1) {
 				basePath = currentPath.substring(0, idx + 1); // incluye la barra final
 			}
+			// Base para construir URLs absolutas dentro de la app (e.g., /miapp/)
+			window.APP_BASE = basePath;
+			// Base para endpoints del módulo
 			window.CATALOGO_BASE = basePath + 'modules/CatalogoProductos/';
 		})();
 
@@ -229,7 +267,9 @@
 			atributos: window.CATALOGO_BASE + 'Controllers/atributo_api.php',
 			imagenes: window.CATALOGO_BASE + 'Controllers/imagenes_producto_api.php',
 			prodCategorias: window.CATALOGO_BASE + 'Controllers/productos_categorias_api.php',
-			prodAtributos: window.CATALOGO_BASE + 'Controllers/productos_atributos_api.php'
+			prodAtributos: window.CATALOGO_BASE + 'Controllers/productos_atributos_api.php',
+			proveedor: window.CATALOGO_BASE + 'Controllers/proveedor_api.php',
+			prodProveedores: window.CATALOGO_BASE + 'Controllers/productos_proveedores_api.php'
 		};
 
 		// Buscar productos y mostrar resultados en la tabla del modal
@@ -399,12 +439,13 @@ document.addEventListener('DOMContentLoaded', () => {
 						document.getElementById('productoIdText').textContent = String(state.productoId);
 						document.getElementById('productoIdBadge').classList.remove('d-none');
 						// Habilitar tabs
-						['tab-categorias','tab-atributos','tab-imagenes'].forEach(id => {
+						['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
 							const el = document.getElementById(id);
 							el.classList.remove('disabled');
 							el.removeAttribute('aria-disabled');
 						});
 						document.getElementById('datosAyuda').classList.add('d-none');
+						cargarProveedoresAsignados?.();
 						if (window.bootstrap?.Toast) showToast('Producto guardado correctamente');
 					} catch (err) {
 						alert('Error: ' + err.message);
@@ -415,6 +456,122 @@ document.addEventListener('DOMContentLoaded', () => {
 				document.getElementById('btnLimpiar').addEventListener('click', () => {
 					document.getElementById('productoForm').reset();
 					['nombre','precio','stock','stock_minimo','estado'].forEach(id => document.getElementById(id).classList.remove('is-invalid'));
+				});
+
+				// ===== PROVEEDORES =====
+				const asignados = new Map(); // id -> { id, nombre }
+
+				function renderAsignados() {
+					const cont = document.getElementById('listaProveedoresAsignados');
+					if (!cont) return;
+					if (!asignados.size) { cont.innerHTML = '<span class="text-muted">Sin proveedores asignados</span>'; return; }
+					cont.innerHTML = Array.from(asignados.values()).map(p => {
+						const id = escapeHTML(String(p.id));
+						const nombre = escapeHTML(String(p.nombre));
+						return `<span class="badge text-bg-secondary d-inline-flex align-items-center gap-2" data-id="${id}">
+							${id} - ${nombre}
+							<button type="button" class="btn btn-sm btn-outline-light" data-action="quitar" data-id="${id}">x</button>
+						</span>`;
+					}).join('');
+				}
+
+				function renderResultadosProveedores(lista) {
+					const tbody = document.querySelector('#tablaResultadosProveedores tbody');
+					if (!tbody) return;
+					if (!Array.isArray(lista) || !lista.length) { tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sin resultados</td></tr>'; return; }
+					tbody.innerHTML = lista.map(item => {
+						const id = escapeHTML(String(item.id_proveedor ?? item.id ?? ''));
+						const nombre = escapeHTML(String(item.nombre ?? ''));
+						const ya = asignados.has(String(item.id_proveedor ?? item.id ?? ''));
+						return `<tr>
+							<td>${id}</td>
+							<td>${nombre}</td>
+							<td>
+								<button class="btn btn-sm ${ya ? 'btn-outline-danger' : 'btn-outline-primary'}" data-action="${ya ? 'quitar' : 'agregar'}" data-id="${id}" data-nombre="${nombre}">
+									${ya ? 'Quitar' : 'Agregar'}
+								</button>
+							</td>
+						</tr>`;
+					}).join('');
+				}
+
+				async function buscarProveedores(term) {
+					if (!state.productoId) return alert('Primero guarda el producto');
+					const q = (term || '').trim();
+					if (q.length > 100) { alert('La búsqueda es demasiado larga'); return; }
+					const url = q ? `${ENDPOINTS.proveedor}?buscar=${encodeURIComponent(q)}` : `${ENDPOINTS.proveedor}?listar=1`;
+					try {
+						const resp = await fetch(url);
+						const data = await resp.json();
+						const lista = Array.isArray(data.proveedores) ? data.proveedores : (Array.isArray(data.data) ? data.data : []);
+						renderResultadosProveedores(lista);
+					} catch (err) {
+						console.error('Error buscando proveedores', err);
+					}
+				}
+
+				async function cargarProveedoresAsignados() {
+					if (!state.productoId) return;
+					try {
+						const resp = await fetch(`${ENDPOINTS.prodProveedores}?id_producto=${encodeURIComponent(String(state.productoId))}`);
+						const data = await resp.json();
+						const lista = Array.isArray(data.proveedores) ? data.proveedores : [];
+						asignados.clear();
+						lista.forEach(p => {
+							const id = String(p.id_proveedor ?? p.id ?? '');
+							if (!id) return;
+							asignados.set(id, { id, nombre: p.nombre ?? '' });
+						});
+						renderAsignados();
+					} catch (err) {
+						console.warn('No se pudieron cargar proveedores asignados (puede no existir el endpoint aún).');
+					}
+				}
+
+				const btnBuscarProv = document.getElementById('btnBuscarProveedor');
+				btnBuscarProv?.addEventListener('click', () => {
+					buscarProveedores(document.getElementById('qProveedor').value);
+				});
+				document.getElementById('qProveedor')?.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') { e.preventDefault(); buscarProveedores(e.target.value); }
+				});
+
+				document.querySelector('#tablaResultadosProveedores tbody')?.addEventListener('click', (e) => {
+					const btn = e.target.closest('button[data-action]');
+					if (!btn) return;
+					const id = String(btn.getAttribute('data-id'));
+					const nombre = btn.getAttribute('data-nombre') || '';
+					if (btn.getAttribute('data-action') === 'agregar') {
+						asignados.set(id, { id, nombre });
+					} else {
+						asignados.delete(id);
+					}
+					renderAsignados();
+					buscarProveedores(document.getElementById('qProveedor').value);
+				});
+
+				document.getElementById('listaProveedoresAsignados')?.addEventListener('click', (e) => {
+					const btn = e.target.closest('button[data-action="quitar"]');
+					if (!btn) return;
+					const id = String(btn.getAttribute('data-id'));
+					asignados.delete(id);
+					renderAsignados();
+				});
+
+				document.getElementById('btnGuardarProveedores')?.addEventListener('click', async () => {
+					if (!state.productoId) return alert('Primero guarda el producto');
+					const ids = Array.from(asignados.keys());
+					try {
+						const payload = new URLSearchParams();
+						payload.set('id_producto', String(state.productoId));
+						ids.forEach(id => payload.append('proveedores[]', id));
+						const resp = await fetch(ENDPOINTS.prodProveedores, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: payload.toString() });
+						const data = await resp.json();
+						if (!resp.ok || !data.success) throw new Error(data.error || 'No se pudo guardar la relación');
+						alert('Relación guardada');
+					} catch (err) {
+						alert('Error al guardar relación: ' + err.message);
+					}
 				});
 
 				// Botones Categorías
@@ -484,20 +641,22 @@ document.addEventListener('DOMContentLoaded', () => {
 						const item = { id_imagen: data.id, archivo: data.archivo, principal: fd.get('principal') === '1' };
 						state.imagenes.push(item);
 						if (window.DataTable && tablaImagenesDT && typeof tablaImagenesDT.row?.add === 'function') {
+							const imgUrl = (window.APP_BASE || '/') + String(item.archivo).replace(/^\/+/, '');
 							tablaImagenesDT.row.add([
 								escapeHTML(String(item.id_imagen)),
-								`<img src="${escapeHTML(item.archivo)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
-								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(item.archivo)}</span>`,
+								`<img src="${escapeHTML(imgUrl)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
+								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(imgUrl)}</span>`,
 								item.principal ? '<span class="badge text-bg-primary">Sí</span>' : 'No'
 							]).draw(false);
 						} else {
 							// Fallback sin DataTables: agrega una fila al tbody
 							const tbody = document.querySelector('#tablaImagenes tbody');
 							const tr = document.createElement('tr');
+							const imgUrl = (window.APP_BASE || '/') + String(item.archivo).replace(/^\/+/, '');
 							tr.innerHTML = [
 								escapeHTML(String(item.id_imagen)),
-								`<img src="${escapeHTML(item.archivo)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
-								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(item.archivo)}</span>`,
+								`<img src="${escapeHTML(imgUrl)}" alt="img" style="width:64px;height:64px;object-fit:cover;border-radius:4px;">`,
+								`<span class="text-truncate" style="max-width:240px;display:inline-block;">${escapeHTML(imgUrl)}</span>`,
 								item.principal ? '<span class="badge text-bg-primary">Sí</span>' : 'No'
 							].map(td => `<td>${td}</td>`).join('');
 							tbody.appendChild(tr);
