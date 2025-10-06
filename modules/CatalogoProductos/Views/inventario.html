@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<!-- filepath: modules/CatalogoProductos/Views/inventario.html -->
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventario</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.4/dist/style.css">
+  <style>.tab-pane{padding-top:1rem}</style>
+</head>
+<body>
+  <div class="container my-4">
+    <h1 class="h3">Inventario</h1>
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dash" type="button">Dashboard</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stock" type="button">Stock disponible</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#movs" type="button">Movimientos</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pedidos" type="button">Pedidos</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#proveedores" type="button">Proveedores</button></li>
+    </ul>
+
+    <div class="tab-content">
+      <div id="dash" class="tab-pane fade show active">
+        <div class="row g-3 mt-2">
+          <div class="col-md-4"><div class="card"><div class="card-body"><h6>Productos con bajo stock</h6><div id="kpiBajoStock" class="fs-3">-</div></div></div></div>
+          <div class="col-md-4"><div class="card"><div class="card-body"><h6>Movimientos 7 días</h6><div id="kpiMov7" class="fs-3">-</div></div></div></div>
+          <div class="col-md-4"><div class="card"><div class="card-body"><h6>Pedidos pendientes</h6><div id="kpiPedidos" class="fs-3">-</div></div></div></div>
+        </div>
+        <div class="mt-3"><canvas id="chartMovs" height="100"></canvas></div>
+        <div class="mt-3">
+          <h5>Alertas de bajo stock</h5>
+          <div class="table-responsive">
+            <table class="table table-sm" id="tablaAlertas"><thead><tr><th>Fecha</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Acción</th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+      </div>
+      <div id="stock" class="tab-pane fade">
+        <div class="d-flex justify-content-between align-items-center mt-2"><h5 class="m-0">Stock</h5><button id="btnExportStock" class="btn btn-sm btn-outline-secondary">Exportar CSV</button></div>
+        <div class="table-responsive mt-2"><table class="table" id="tablaStock"><thead><tr><th>ID</th><th>Nombre</th><th>Stock</th><th>Mínimo</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div id="movs" class="tab-pane fade">
+        <div class="row g-3 mt-2">
+          <div class="col-md-4">
+            <div class="card"><div class="card-body">
+              <h6>Registrar movimiento</h6>
+              <div class="mb-2">
+                <label class="form-label">Producto</label>
+                <div class="position-relative">
+                  <input id="qMovProd" type="text" class="form-control" placeholder="Buscar por nombre o ID">
+                  <input id="movProd" type="hidden">
+                  <div id="movProdSuggestions" class="list-group position-absolute w-100" style="z-index:1050; max-height: 240px; overflow:auto; display:none;"></div>
+                </div>
+                <div id="movProdSelected" class="form-text">Ninguno seleccionado</div>
+              </div>
+              <div class="mb-2"><label class="form-label">Tipo</label><select id="movTipo" class="form-select"><option>entrada</option><option>salida</option><option>ajuste</option></select></div>
+              <div class="mb-2"><label class="form-label">Cantidad</label><input id="movCant" type="number" class="form-control" value="1"></div>
+              <div class="mb-2"><label class="form-label">Motivo</label><input id="movMotivo" type="text" class="form-control"></div>
+              <button id="btnMovGuardar" class="btn btn-primary w-100">Guardar</button>
+            </div></div>
+          </div>
+          <div class="col-md-8">
+            <div class="table-responsive"><table class="table" id="tablaMovs"><thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cant.</th><th>Motivo</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+      </div>
+      <div id="pedidos" class="tab-pane fade">
+        <div class="d-flex flex-wrap gap-2 align-items-end mt-2">
+          <button id="btnNuevoPedido" class="btn btn-primary">Nuevo pedido</button>
+          <div>
+            <label class="form-label mb-1">Proveedor</label>
+            <input type="text" id="fProv" class="form-control" placeholder="Nombre proveedor" />
+          </div>
+          <div>
+            <label class="form-label mb-1">Estado</label>
+            <select id="fEstado" class="form-select">
+              <option value="">Todos</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="recibido">Recibido</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label mb-1">Desde</label>
+            <input type="date" id="fDesde" class="form-control"/>
+          </div>
+          <div>
+            <label class="form-label mb-1">Hasta</label>
+            <input type="date" id="fHasta" class="form-control"/>
+          </div>
+          <button id="btnBuscarPedidos" class="btn btn-outline-secondary">Buscar</button>
+        </div>
+        <div class="table-responsive mt-3">
+          <table class="table table-hover" id="tablaPedidos">
+            <thead>
+              <tr><th>ID</th><th>Fecha</th><th>Proveedor</th><th>Estado</th><th>Ítems</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="6" class="text-muted">Sin resultados</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Modal: Nuevo Pedido -->
+        <div class="modal fade" id="modalNuevoPedido" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Nuevo pedido de reabastecimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Proveedor</label>
+                    <div class="position-relative">
+                      <input type="text" id="qProvPedido" class="form-control" placeholder="Buscar proveedor" autocomplete="off">
+                      <input type="hidden" id="provPedido">
+                      <div id="provPedidoSug" class="list-group position-absolute w-100" style="z-index:1050; max-height:240px; overflow:auto; display:none;"></div>
+                    </div>
+                    <div class="form-text" id="provPedidoInfo">Ninguno seleccionado</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" id="obsPedido" class="form-control" maxlength="200" placeholder="Opcional"/>
+                  </div>
+                  <div class="col-12"><hr class="my-2"/></div>
+                  <div class="col-md-6">
+                    <label class="form-label">Agregar productos</label>
+                    <div class="position-relative">
+                      <input type="text" id="qProdPedido" class="form-control" placeholder="Buscar por nombre o ID" autocomplete="off">
+                      <div id="prodPedidoSug" class="list-group position-absolute w-100" style="z-index:1050; max-height:240px; overflow:auto; display:none;"></div>
+                    </div>
+                    <div class="form-text">Selecciona un producto para añadirlo a la lista</div>
+                  </div>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table align-middle" id="tablaDetallePedido">
+                    <thead><tr><th style="width:100px;">ID</th><th>Producto</th><th style="width:140px;">Cantidad</th><th style="width:160px;">Precio unit.</th><th style="width:80px;"></th></tr></thead>
+                    <tbody><tr><td colspan="5" class="text-muted">Sin ítems</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" id="btnGuardarPedido">Guardar pedido</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Ver Pedido -->
+        <div class="modal fade" id="modalVerPedido" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Detalle del pedido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-2">
+                  <div class="col-md-3">
+                    <div class="small text-muted">ID</div>
+                    <div id="vp_id" class="fw-semibold">-</div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="small text-muted">Fecha</div>
+                    <div id="vp_fecha">-</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="small text-muted">Proveedor</div>
+                    <div id="vp_proveedor">-</div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="small text-muted">Estado</div>
+                    <div id="vp_estado" class="badge text-bg-secondary">-</div>
+                  </div>
+                  <div class="col-md-9">
+                    <div class="small text-muted">Observaciones</div>
+                    <div id="vp_obs">-</div>
+                  </div>
+                </div>
+                <hr/>
+                <div class="table-responsive">
+                  <table class="table align-middle" id="tablaDetalleVerPedido">
+                    <thead><tr><th style="width:100px;">ID Prod.</th><th>Producto</th><th style="width:120px;">Cantidad</th><th style="width:120px;">Recibido</th><th style="width:140px;">Precio unit.</th><th style="width:160px;">Recibir ahora</th></tr></thead>
+                    <tbody><tr><td colspan="5" class="text-muted">Sin ítems</td></tr></tbody>
+                  </table>
+                </div>
+                <div class="d-flex justify-content-end gap-4 mt-2">
+                  <div><span class="text-muted">Ítems:</span> <span id="vp_totalItems" class="fw-semibold">0</span></div>
+                  <div><span class="text-muted">Total:</span> <span id="vp_totalMonto" class="fw-semibold">0.00</span></div>
+                </div>
+                <div class="alert alert-info mt-2 small">Nota: La recepción parcial registra movimientos de entrada por los ítems indicados pero no cambia el estado del pedido. Cuando el pedido esté completamente recibido, usa “Marcar como recibido” (o “Recibir todo” para registrar todo de una vez).</div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-outline-primary d-none" id="vp_btnRecibirParcial" data-id="">Recibir parcial</button>
+                <button class="btn btn-outline-danger d-none" id="vp_btnCancelar" data-id="">Cancelar pedido</button>
+                <button class="btn btn-primary d-none" id="vp_btnRecibir" data-id="">Recibir todo</button>
+                <button class="btn btn-success d-none" id="vp_btnMarcarRecibido" data-id="">Marcar como recibido</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="proveedores" class="tab-pane fade">
+        <div class="row g-3 mt-2">
+          <div class="col-md-8">
+            <div class="input-group">
+              <input type="text" id="qProveedorInv" class="form-control" placeholder="Buscar proveedor por nombre" maxlength="100">
+              <button class="btn btn-primary" id="btnBuscarProveedorInv">Buscar</button>
+            </div>
+            <small class="text-muted">Ingresa al menos 1 carácter; se muestran hasta 200 resultados.</small>
+          </div>
+          <div class="col-12">
+            <div class="table-responsive">
+              <table class="table table-hover" id="tablaProveedoresInv">
+                <thead><tr><th style="width:120px;">ID</th><th>Nombre</th></tr></thead>
+                <tbody><tr><td colspan="2" class="text-muted">Sin resultados</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.4/dist/umd/simple-datatables.min.js"></script>
+  <script>
+    // Rutas dinámicas: calcula APP_BASE y CATALOGO_BASE como en producto_gestion.html
+    (function initBasePaths(){
+      const currentPath = window.location.pathname.replace(/\\/g,'/');
+      const marker = '/modules/CatalogoProductos/Views/';
+      let basePath = '/';
+      const idx = currentPath.indexOf(marker);
+      if (idx !== -1) basePath = currentPath.substring(0, idx + 1);
+      window.APP_BASE = basePath;
+      window.CATALOGO_BASE = basePath + 'modules/CatalogoProductos/';
+    })();
+
+    const API = {
+      alertas: window.CATALOGO_BASE + 'Controllers/alertas_bajo_stock_api.php',
+      stock: window.CATALOGO_BASE + 'Controllers/stock_api.php',
+      movs: window.CATALOGO_BASE + 'Controllers/inventario_movimientos_api.php',
+      pedidos: window.CATALOGO_BASE + 'Controllers/pedidos_reabastecimiento_api.php',
+      producto: window.CATALOGO_BASE + 'Controllers/producto_api.php',
+      proveedor: window.CATALOGO_BASE + 'Controllers/proveedor_api.php',
+    };
+    function escapeHTML(s){return (s??'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');}
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Base: si se abre con ?tab=movs&id_producto=123, activar pestaña Movimientos y precargar el producto
+      try {
+        const usp = new URLSearchParams(location.search);
+        const tab = usp.get('tab');
+        const idp = usp.get('id_producto');
+        if (tab === 'movs' && window.bootstrap) {
+          const btn = document.querySelector('button[data-bs-target="#movs"]');
+          if (btn) new bootstrap.Tab(btn).show();
+        }
+        if (idp) {
+          const movId = document.getElementById('movProd');
+          const qMov = document.getElementById('qMovProd');
+          const selInfo = document.getElementById('movProdSelected');
+          if (movId) movId.value = idp;
+          // Rellenar el nombre en el buscador
+          try {
+            const pr = await fetch(API.producto + '?id=' + encodeURIComponent(String(idp))).then(r=>r.json());
+            const p = pr.producto || null;
+            if (p && qMov) {
+              qMov.value = `${p.nombre || ''} (ID ${p.id_producto || idp})`;
+              if (selInfo) selInfo.textContent = `Seleccionado: ${(p.nombre || '')} (ID ${p.id_producto || idp})`;
+            }
+          } catch {}
+          // Además, filtra la tabla de movimientos
+          try {
+            const mv = await fetch(API.movs + '?id_producto=' + encodeURIComponent(String(idp)) + '&limit=50').then(r=>r.json());
+            const tb = document.querySelector('#tablaMovs tbody');
+            tb.innerHTML = (mv.movimientos||[]).map(m=>`<tr><td>${escapeHTML(m.fecha)}</td><td>${escapeHTML(m.producto||m.id_producto)}</td><td>${escapeHTML(m.tipo)}</td><td>${escapeHTML(m.cantidad)}</td><td>${escapeHTML(m.motivo||'')}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">Sin datos</td></tr>';
+          } catch {}
+        }
+      } catch {}
+      // KPIs básicos
+      try {
+        const st = await fetch(API.stock + '?bajo_stock=1&limit=1').then(r=>r.json());
+        document.getElementById('kpiBajoStock').textContent = Array.isArray(st.stock) ? st.stock.length : '-';
+      } catch {}
+      try {
+        const mv7 = await fetch(API.movs + '?fecha_desde=' + new Date(Date.now()-7*86400000).toISOString().slice(0,19).replace('T',' ')).then(r=>r.json());
+        document.getElementById('kpiMov7').textContent = Array.isArray(mv7.movimientos) ? mv7.movimientos.length : '-';
+      } catch {}
+      try {
+        const pd = await fetch(API.pedidos + '?estado=pendiente&limit=1').then(r=>r.json());
+        document.getElementById('kpiPedidos').textContent = Array.isArray(pd.pedidos) ? pd.pedidos.length : '-';
+      } catch {}
+      // Alertas
+      try {
+        const al = await fetch(API.alertas).then(r=>r.json());
+        const tb = document.querySelector('#tablaAlertas tbody');
+        tb.innerHTML = (al.alertas||[]).map(a=>`<tr><td>${escapeHTML(a.fecha)}</td><td>${escapeHTML(a.producto)}</td><td>${escapeHTML(a.stock_actual)}</td><td>${escapeHTML(a.stock_minimo)}</td><td><button class="btn btn-sm btn-success" data-id="${escapeHTML(a.id_alerta)}">Atender</button></td></tr>`).join('');
+        tb.addEventListener('click', async (e)=>{ const b=e.target.closest('button[data-id]'); if(!b) return; const fd=new URLSearchParams(); fd.set('id_alerta', b.dataset.id); const r=await fetch(API.alertas+'?atender=1',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()}); if(r.ok) b.closest('tr').remove(); });
+      } catch {}
+      // Stock table
+      try {
+        const st = await fetch(API.stock + '?limit=100').then(r=>r.json());
+        const tb = document.querySelector('#tablaStock tbody');
+        tb.innerHTML = (st.stock||[]).map(x=>`<tr><td>${escapeHTML(x.id_producto)}</td><td>${escapeHTML(x.nombre)}</td><td>${escapeHTML(x.stock_disponible)}</td><td>${escapeHTML(x.stock_minimo)}</td><td>${x.estado==1?'Activo':'Inactivo'}</td></tr>`).join('');
+      } catch {}
+      // Movimientos
+      try {
+        const mv = await fetch(API.movs + '?limit=50').then(r=>r.json());
+        const tb = document.querySelector('#tablaMovs tbody');
+        tb.innerHTML = (mv.movimientos||[]).map(m=>`<tr><td>${escapeHTML(m.fecha)}</td><td>${escapeHTML(m.producto||m.id_producto)}</td><td>${escapeHTML(m.tipo)}</td><td>${escapeHTML(m.cantidad)}</td><td>${escapeHTML(m.motivo||'')}</td></tr>`).join('');
+      } catch {}
+      // Guardar movimiento (validar selección de producto)
+      document.getElementById('btnMovGuardar').addEventListener('click', async ()=>{
+        const idSel = parseInt(document.getElementById('movProd').value,10) || 0;
+        if (!idSel){ alert('Selecciona un producto'); return; }
+        const fd = { id_producto: idSel, tipo: document.getElementById('movTipo').value, cantidad: parseInt(document.getElementById('movCant').value,10)||0, motivo: document.getElementById('movMotivo').value };
+        try {
+          const r = await fetch(API.movs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(fd)});
+          const data = await r.json();
+          if(!data.success) throw new Error(data.error||'Error');
+          alert('Movimiento registrado'); location.reload();
+        } catch(e){ alert('Error: '+e.message); }
+      });
+
+      // ===== Búsqueda de producto para Movimientos =====
+      const qMov = document.getElementById('qMovProd');
+      const movId = document.getElementById('movProd');
+      const sug = document.getElementById('movProdSuggestions');
+      const selInfo = document.getElementById('movProdSelected');
+
+      function setProductoSeleccionado(id, nombre){
+        movId.value = String(id||'');
+        qMov.value = nombre ? `${nombre} (ID ${id})` : String(id||'');
+        if (selInfo) selInfo.textContent = id ? `Seleccionado: ${nombre||''} (ID ${id})` : 'Ninguno seleccionado';
+      }
+
+      function renderSugerencias(lista){
+        if (!sug) return;
+        if (!Array.isArray(lista) || !lista.length){ sug.style.display='none'; sug.innerHTML=''; return; }
+        sug.innerHTML = lista.map(p=>{
+          const id = (p.id_producto ?? p.id ?? '').toString();
+          const nombre = (p.nombre ?? '').toString();
+          return `<button type=\"button\" class=\"list-group-item list-group-item-action\" data-id=\"${id}\" data-nombre=\"${nombre}\"><div class=\"fw-semibold\">${escapeHTML(nombre)}</div><div class=\"small text-muted\">ID ${escapeHTML(id)}</div></button>`;
+        }).join('');
+        sug.style.display = 'block';
+      }
+
+      let movSearchTimer = null;
+      async function buscarProductosMov(term){
+        const t = (term||'').trim();
+        if (!t){ renderSugerencias([]); return; }
+        const url = isFinite(Number(t)) ? (API.producto + '?id=' + encodeURIComponent(t)) : (API.producto + '?buscar=' + encodeURIComponent(t));
+        try{
+          const r = await fetch(url);
+          const data = await r.json();
+          let lista = [];
+          if (r.ok){
+            if (data.producto) lista = [data.producto];
+            else if (Array.isArray(data.productos)) lista = data.productos;
+            else if (Array.isArray(data.data)) lista = data.data;
+          }
+          renderSugerencias(lista);
+        } catch{ renderSugerencias([]); }
+      }
+
+      qMov?.addEventListener('input', () => {
+        if (!qMov) return;
+        movId.value = '';
+        if (selInfo) selInfo.textContent = 'Ninguno seleccionado';
+        clearTimeout(movSearchTimer);
+        movSearchTimer = setTimeout(()=> buscarProductosMov(qMov.value), 250);
+      });
+      qMov?.addEventListener('focus', ()=> { if (qMov?.value) buscarProductosMov(qMov.value); });
+      qMov?.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); buscarProductosMov(qMov.value); } });
+      sug?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-id]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        const nombre = btn.getAttribute('data-nombre') || '';
+        setProductoSeleccionado(id, nombre);
+        sug.style.display = 'none';
+        sug.innerHTML = '';
+      });
+      // Cerrar sugerencias al hacer click fuera
+      document.addEventListener('click', (e)=>{
+        if (!sug?.contains(e.target) && e.target !== qMov){ if (sug){sug.style.display = 'none';} }
+      });
+
+      // ===== Proveedores (Inventario) =====
+      function renderProveedoresInv(lista){
+        const tb = document.querySelector('#tablaProveedoresInv tbody');
+        if (!tb) return;
+        if (!Array.isArray(lista) || !lista.length){
+          tb.innerHTML = '<tr><td colspan="2" class="text-muted">Sin resultados</td></tr>';
+          return;
+        }
+        tb.innerHTML = lista.map(p=>{
+          const id = escapeHTML(String(p.id_proveedor ?? p.id ?? ''));
+          const nombre = escapeHTML(String(p.nombre ?? ''));
+          return `<tr><td>${id}</td><td>${nombre}</td></tr>`;
+        }).join('');
+      }
+
+      async function buscarProveedoresInv(q){
+        const term = (q||'').trim();
+        const url = term ? (API.proveedor + '?buscar=' + encodeURIComponent(term)) : (API.proveedor + '?listar=1');
+        try{
+          const r = await fetch(url);
+          const data = await r.json();
+          const lista = Array.isArray(data.proveedores) ? data.proveedores : (Array.isArray(data.data) ? data.data : []);
+          renderProveedoresInv(lista);
+        } catch(e){
+          const tb = document.querySelector('#tablaProveedoresInv tbody');
+          if (tb) tb.innerHTML = '<tr><td colspan="2" class="text-danger">Error al cargar proveedores</td></tr>';
+        }
+      }
+
+      // Eventos de búsqueda y carga al mostrar el tab
+      document.getElementById('btnBuscarProveedorInv')?.addEventListener('click', ()=>{
+        buscarProveedoresInv(document.getElementById('qProveedorInv')?.value);
+      });
+      document.getElementById('qProveedorInv')?.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter'){ e.preventDefault(); buscarProveedoresInv(e.target.value); }
+      });
+      // Al mostrar el tab de Proveedores, listar por defecto
+      try{
+        const tabBtnProv = document.querySelector('button[data-bs-target="#proveedores"]');
+        tabBtnProv?.addEventListener('shown.bs.tab', ()=> buscarProveedoresInv(''));
+      } catch{}
+
+      // ===== Pedidos (listar/filtrar + acciones) =====
+      function renderPedidos(rows){
+        const tb = document.querySelector('#tablaPedidos tbody');
+        if (!tb) return;
+        if (!Array.isArray(rows) || !rows.length){
+          tb.innerHTML = '<tr><td colspan="6" class="text-muted">Sin resultados</td></tr>';
+          return;
+        }
+        tb.innerHTML = rows.map(p => {
+          const id = escapeHTML(String(p.id_pedido ?? p.id ?? ''));
+          const fecha = escapeHTML(String(p.fecha ?? p.fecha_creacion ?? p.creado_en ?? ''));
+          const prov = escapeHTML(String(p.proveedor ?? p.nombre_proveedor ?? ''));
+          const estadoRaw = String(p.estado ?? '').toLowerCase();
+          const badge = estadoRaw==='pendiente' ? 'warning' : (estadoRaw==='recibido' ? 'success' : 'secondary');
+          const items = escapeHTML(String(p.items ?? p.cant_items ?? p.total_items ?? '-'));
+          const disPend = estadoRaw!=='pendiente' ? 'disabled' : '';
+          return `<tr>
+            <td>${id}</td>
+            <td>${fecha}</td>
+            <td>${prov}</td>
+            <td><span class="badge text-bg-${badge}">${escapeHTML(estadoRaw||'-')}</span></td>
+            <td>${items}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary" data-action="ver" data-id="${id}">Ver</button>
+              <button class="btn btn-sm btn-outline-success" data-action="recibir" data-id="${id}" ${disPend}>Recibir</button>
+              <button class="btn btn-sm btn-outline-danger" data-action="cancelar" data-id="${id}" ${disPend}>Cancelar</button>
+            </td>
+          </tr>`;
+        }).join('');
+      }
+
+      async function listarPedidos(){
+        const qs = new URLSearchParams();
+        const prov = document.getElementById('fProv')?.value.trim();
+        const est = document.getElementById('fEstado')?.value;
+        const d = document.getElementById('fDesde')?.value;
+        const h = document.getElementById('fHasta')?.value;
+        if (prov) qs.set('proveedor', prov);
+        if (est) qs.set('estado', est);
+        if (d) qs.set('fecha_desde', d + ' 00:00:00');
+        if (h) qs.set('fecha_hasta', h + ' 23:59:59');
+        qs.set('limit','50');
+        try{
+          const r = await fetch(API.pedidos + '?' + qs.toString());
+          const data = await r.json();
+          renderPedidos(data.pedidos || data.data || []);
+        } catch {
+          renderPedidos([]);
+        }
+      }
+
+      document.getElementById('btnBuscarPedidos')?.addEventListener('click', listarPedidos);
+      // Cargar al mostrar el tab Pedidos
+      try{
+        const tabBtnPed = document.querySelector('button[data-bs-target="#pedidos"]');
+        tabBtnPed?.addEventListener('shown.bs.tab', listarPedidos);
+      } catch{}
+      // Acciones de la tabla de pedidos (ver/recibir/cancelar)
+      document.querySelector('#tablaPedidos tbody')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-id');
+        if (btn.dataset.action === 'ver'){
+          // Carga y muestra el modal de ver pedido
+          try {
+            const r = await fetch(API.pedidos + '?id=' + encodeURIComponent(id));
+            const data = await r.json();
+            const p = data.pedido || null;
+            if (!p) return alert('No se encontró el pedido');
+            // Cabecera
+            document.getElementById('vp_id').textContent = String(p.id_pedido || id);
+            document.getElementById('vp_fecha').textContent = p.fecha || p.creado_en || '-';
+            document.getElementById('vp_proveedor').textContent = p.proveedor || (`ID ${p.id_proveedor||''}`);
+            const estado = String(p.estado||'').toLowerCase();
+            const badge = estado==='pendiente' ? 'warning' : (estado==='recibido' ? 'success' : 'secondary');
+            const vpEstado = document.getElementById('vp_estado');
+            vpEstado.className = 'badge text-bg-' + badge;
+            vpEstado.textContent = estado || '-';
+            document.getElementById('vp_obs').textContent = p.observaciones || '-';
+            // Detalle
+            const det = Array.isArray(p.detalle) ? p.detalle : [];
+            const tb = document.querySelector('#tablaDetalleVerPedido tbody');
+            tb.innerHTML = det.length ? det.map(d => {
+              const idp = escapeHTML(String(d.id_producto));
+              const nom = escapeHTML(String(d.producto||''));
+              const cant = Number(d.cantidad||0);
+              const rec = Number(d.recibido||0);
+              const precio = Number(d.precio_unitario||0);
+              const cantHtml = escapeHTML(String(cant));
+              const recHtml = escapeHTML(String(rec));
+              const precioHtml = escapeHTML(String(precio));
+              return `<tr data-id_producto="${idp}"><td>${idp}</td><td>${nom}</td><td>${cantHtml}</td><td>${recHtml}</td><td>${precioHtml}</td><td><input type="number" min="0" max="${Math.max(0, cant - rec)}" step="1" class="form-control form-control-sm vp-recv" value="0"></td></tr>`;
+            }).join('') : '<tr><td colspan="5" class="text-muted">Sin ítems</td></tr>';
+            // Totales
+            try{
+              const totalItems = det.reduce((a,b)=> a + (Number(b.cantidad)||0), 0);
+              const totalMonto = det.reduce((a,b)=> a + (Number(b.cantidad)||0)*(Number(b.precio_unitario)||0), 0);
+              document.getElementById('vp_totalItems').textContent = String(totalItems);
+              document.getElementById('vp_totalMonto').textContent = (Math.round(totalMonto*100)/100).toFixed(2);
+            } catch {}
+            // Acciones
+            const bRec = document.getElementById('vp_btnRecibir');
+            const bCan = document.getElementById('vp_btnCancelar');
+            const bPar = document.getElementById('vp_btnRecibirParcial');
+            bRec.dataset.id = String(p.id_pedido || id);
+            bCan.dataset.id = String(p.id_pedido || id);
+            bPar.dataset.id = String(p.id_pedido || id);
+            const pendiente = estado==='pendiente';
+            bRec.classList.toggle('d-none', !pendiente);
+            bCan.classList.toggle('d-none', !pendiente);
+            bPar.classList.toggle('d-none', !pendiente);
+            // Mostrar botón "Marcar como recibido" si está completo y pendiente
+            const completo = (p.completo === true || p.completo === 1 || p.completo === '1');
+            const bMarcar = document.getElementById('vp_btnMarcarRecibido');
+            if (bMarcar) {
+              bMarcar.dataset.id = String(p.id_pedido || id);
+              bMarcar.classList.toggle('d-none', !(pendiente && completo));
+            }
+            // Sugerencia visual cuando ya está completo
+            if (pendiente && completo){
+              const note = document.createElement('div');
+              note.className = 'alert alert-success mt-2';
+              note.textContent = 'El pedido ya fue recibido completamente por recepciones parciales. Puedes marcarlo como recibido.';
+              document.querySelector('#modalVerPedido .modal-body')?.appendChild(note);
+            }
+            // Mostrar modal
+            const m = new bootstrap.Modal(document.getElementById('modalVerPedido'));
+            m.show();
+          } catch (err) {
+            alert('Error al cargar pedido: ' + (err?.message||'desconocido'));
+          }
+        } else if (btn.dataset.action === 'recibir'){
+          if (!confirm('Marcar como recibido el pedido ' + id + '?')) return;
+          try {
+            const r = await fetch(API.pedidos + '?recibir=1&id=' + encodeURIComponent(id), { method:'POST' });
+            const data = await r.json();
+            if (!data.success) return alert(data.error || 'Error');
+            listarPedidos();
+          } catch (err) { alert('Error: ' + (err?.message||'desconocido')); }
+        } else if (btn.dataset.action === 'cancelar'){
+          if (!confirm('Cancelar el pedido ' + id + '?')) return;
+          try {
+            const body = new URLSearchParams();
+            body.set('id', String(id));
+            body.set('estado', 'cancelado');
+            const r = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+            const data = await r.json();
+            if (!data.success) return alert(data.error || 'Error');
+            listarPedidos();
+          } catch (err) { alert('Error: ' + (err?.message||'desconocido')); }
+        }
+      });
+      // Acciones en modal Ver Pedido
+      document.getElementById('vp_btnRecibirParcial')?.addEventListener('click', async (e)=>{
+        const id = e.target.getAttribute('data-id');
+        if (!id) return;
+        const rows = Array.from(document.querySelectorAll('#tablaDetalleVerPedido tbody tr'));
+        const movimientos = [];
+        rows.forEach(tr => {
+          const idp = parseInt(tr.getAttribute('data-id_producto'),10)||0;
+          const input = tr.querySelector('input.vp-recv');
+          const cantTot = parseInt(tr.children[2]?.textContent,10)||0;
+          const recAcum = parseInt(tr.children[3]?.textContent,10)||0;
+          const max = Math.max(0, cantTot - recAcum);
+          const cant = Math.max(0, Math.min(max, parseInt(input?.value,10)||0));
+          if (idp && cant>0){
+            movimientos.push({ id_producto: idp, tipo: 'entrada', cantidad: cant, motivo: `recepción parcial pedido ${id}`, id_pedido: parseInt(id,10)||undefined });
+          }
+        });
+        if (!movimientos.length){ alert('Indica cantidades a recibir'); return; }
+        try{
+          // Registrar movimientos uno por uno (simple y seguro)
+          for (const mv of movimientos){
+            const r = await fetch(API.movs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mv)});
+            const data = await r.json();
+            if (!data.success) throw new Error(data.error||'Error al registrar movimiento');
+          }
+          // Refrescar datos del pedido y auto-marcar como recibido si ya está completo
+          try {
+            const r2 = await fetch(API.pedidos + '?id=' + encodeURIComponent(id));
+            const data2 = await r2.json();
+            const p2 = data2.pedido || null;
+            if (p2 && (p2.completo === true || p2.completo === 1 || p2.completo === '1') && String(p2.estado||'').toLowerCase()==='pendiente'){
+              // Auto-marcar como recibido
+              const body = new URLSearchParams();
+              body.set('id', String(id));
+              body.set('estado', 'recibido');
+              const r3 = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+              const d3 = await r3.json();
+              if (d3 && d3.success){
+                alert('Recepción parcial registrada y pedido marcado como recibido');
+                bootstrap.Modal.getInstance(document.getElementById('modalVerPedido'))?.hide();
+                listarPedidos();
+                return;
+              }
+            }
+          } catch {}
+          alert('Recepción parcial registrada');
+        } catch(err){ alert('Error: ' + (err?.message||'desconocido')); }
+      });
+      // Marcar como recibido (solo cuando está completo)
+      document.getElementById('vp_btnMarcarRecibido')?.addEventListener('click', async (e)=>{
+        const id = e.target.getAttribute('data-id');
+        if (!id) return;
+        try {
+          const body = new URLSearchParams();
+          body.set('id', String(id));
+          body.set('estado', 'recibido');
+          const r = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+          const data = await r.json();
+          if (!data.success) return alert(data.error || 'No se pudo marcar como recibido');
+          alert('Pedido marcado como recibido');
+          bootstrap.Modal.getInstance(document.getElementById('modalVerPedido'))?.hide();
+          listarPedidos();
+        } catch (err) { alert('Error: ' + (err?.message||'desconocido')); }
+      });
+      document.getElementById('vp_btnRecibir')?.addEventListener('click', async (e)=>{
+        const id = e.target.getAttribute('data-id');
+        if (!id) return;
+        if (!confirm('Recibir por completo el pedido ' + id + '?')) return;
+        try {
+          const r = await fetch(API.pedidos + '?recibir=1&id=' + encodeURIComponent(id), { method:'POST' });
+          const data = await r.json();
+          if (!data.success) return alert(data.error || 'Error');
+          bootstrap.Modal.getInstance(document.getElementById('modalVerPedido'))?.hide();
+          listarPedidos();
+        } catch (err) { alert('Error: ' + (err?.message||'desconocido')); }
+      });
+      document.getElementById('vp_btnCancelar')?.addEventListener('click', async (e)=>{
+        const id = e.target.getAttribute('data-id');
+        if (!id) return;
+        if (!confirm('Cancelar el pedido ' + id + '?')) return;
+        try {
+          const body = new URLSearchParams();
+          body.set('id', String(id));
+          body.set('estado', 'cancelado');
+          const r = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+          const data = await r.json();
+          if (!data.success) return alert(data.error || 'Error');
+          bootstrap.Modal.getInstance(document.getElementById('modalVerPedido'))?.hide();
+          listarPedidos();
+        } catch (err) { alert('Error: ' + (err?.message||'desconocido')); }
+      });
+      // Nuevo pedido (modal + lógica)
+      const modalNuevo = document.getElementById('modalNuevoPedido');
+      const modalNuevoInst = modalNuevo ? new bootstrap.Modal(modalNuevo) : null;
+      const detalleItems = [];
+      function resetNuevoPedido(){
+        if (document.getElementById('qProvPedido')) document.getElementById('qProvPedido').value='';
+        if (document.getElementById('provPedido')) document.getElementById('provPedido').value='';
+        if (document.getElementById('provPedidoInfo')) document.getElementById('provPedidoInfo').textContent='Ninguno seleccionado';
+        if (document.getElementById('obsPedido')) document.getElementById('obsPedido').value='';
+        detalleItems.length = 0;
+        const tb = document.querySelector('#tablaDetallePedido tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="5" class="text-muted">Sin ítems</td></tr>';
+      }
+      document.getElementById('btnNuevoPedido')?.addEventListener('click', () => {
+        resetNuevoPedido();
+        modalNuevoInst?.show();
+      });
+      function renderDetalle(items){
+        const tb = document.querySelector('#tablaDetallePedido tbody');
+        if (!tb) return;
+        if (!Array.isArray(items) || !items.length){ tb.innerHTML = '<tr><td colspan="5" class="text-muted">Sin ítems</td></tr>'; return; }
+        tb.innerHTML = items.map((it, idx)=>{
+          const id = escapeHTML(String(it.id_producto));
+          const nombre = escapeHTML(String(it.nombre||''));
+          const cant = escapeHTML(String(it.cantidad||1));
+          const precio = escapeHTML(String(it.precio_unitario||0));
+          return `<tr data-index="${idx}"><td>${id}</td><td>${nombre}</td>
+            <td><input type="number" min="1" class="form-control form-control-sm" data-field="cantidad" value="${cant}"></td>
+            <td><input type="number" min="0" step="0.01" class="form-control form-control-sm" data-field="precio_unitario" value="${precio}"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger" data-action="quitar">Quitar</button></td></tr>`;
+        }).join('');
+      }
+      function agregarItemDetalle(item){
+        const id = String(item.id_producto);
+        const ya = detalleItems.find(x=> String(x.id_producto) === id);
+        if (ya){ ya.cantidad = (parseInt(ya.cantidad,10)||1) + 1; }
+        else { detalleItems.push({ id_producto: id, nombre: item.nombre||'', cantidad: 1, precio_unitario: 0 }); }
+        renderDetalle(detalleItems);
+      }
+      document.querySelector('#tablaDetallePedido tbody')?.addEventListener('input', (e)=>{
+        const tr = e.target.closest('tr[data-index]');
+        if (!tr) return;
+        const idx = parseInt(tr.getAttribute('data-index'),10);
+        const field = e.target.getAttribute('data-field');
+        if (!['cantidad','precio_unitario'].includes(field)) return;
+        const val = field==='cantidad' ? Math.max(1, parseInt(e.target.value,10)||1) : Math.max(0, parseFloat(e.target.value)||0);
+        detalleItems[idx][field] = val;
+      });
+      document.querySelector('#tablaDetallePedido tbody')?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-action="quitar"]');
+        if (!btn) return;
+        const tr = btn.closest('tr[data-index]');
+        const idx = parseInt(tr.getAttribute('data-index'),10);
+        detalleItems.splice(idx,1);
+        renderDetalle(detalleItems);
+      });
+      // Búsqueda proveedor
+      const qProvPedido = document.getElementById('qProvPedido');
+      const provPedido = document.getElementById('provPedido');
+      const provSug = document.getElementById('provPedidoSug');
+      function renderProvSug(lista){
+        if (!provSug) return;
+        if (!Array.isArray(lista) || !lista.length){ provSug.style.display='none'; provSug.innerHTML=''; return; }
+        provSug.innerHTML = lista.map(p=>{
+          const id = (p.id_proveedor ?? p.id ?? '').toString();
+          const nombre = (p.nombre ?? '').toString();
+          return `<button type="button" class="list-group-item list-group-item-action" data-id="${id}" data-nombre="${nombre}">${escapeHTML(nombre)} <span class="text-muted small">(ID ${escapeHTML(id)})</span></button>`;
+        }).join('');
+        provSug.style.display='block';
+      }
+      async function buscarProvPedido(term){
+        const q = (term||'').trim();
+        const url = q ? (API.proveedor + '?buscar=' + encodeURIComponent(q)) : (API.proveedor + '?listar=1');
+        try{
+          const r = await fetch(url);
+          const data = await r.json();
+          const lista = Array.isArray(data.proveedores) ? data.proveedores : (Array.isArray(data.data) ? data.data : []);
+          renderProvSug(lista);
+        } catch{ renderProvSug([]); }
+      }
+      qProvPedido?.addEventListener('input', ()=>{ if(provPedido) provPedido.value=''; const info=document.getElementById('provPedidoInfo'); if(info) info.textContent='Ninguno seleccionado'; buscarProvPedido(qProvPedido.value); });
+      qProvPedido?.addEventListener('focus', ()=>{ if (qProvPedido?.value) buscarProvPedido(qProvPedido.value); });
+      provSug?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-id]');
+        if (!btn) return;
+        if (provPedido) provPedido.value = btn.getAttribute('data-id');
+        if (qProvPedido) qProvPedido.value = `${btn.getAttribute('data-nombre')} (ID ${provPedido.value})`;
+        const info = document.getElementById('provPedidoInfo');
+        if (info) info.textContent = `Seleccionado: ${btn.getAttribute('data-nombre')} (ID ${provPedido.value})`;
+        provSug.style.display='none'; provSug.innerHTML='';
+      });
+      document.addEventListener('click', (e)=>{ if (!provSug?.contains(e.target) && e.target!==qProvPedido){ if (provSug) provSug.style.display='none'; } });
+      // Búsqueda producto
+      const qProdPed = document.getElementById('qProdPedido');
+      const prodSug = document.getElementById('prodPedidoSug');
+      function renderProdSug(lista){
+        if (!prodSug) return;
+        if (!Array.isArray(lista) || !lista.length){ prodSug.style.display='none'; prodSug.innerHTML=''; return; }
+        prodSug.innerHTML = lista.map(p=>{
+          const id = (p.id_producto ?? p.id ?? '').toString();
+          const nombre = (p.nombre ?? '').toString();
+          return `<button type=\"button\" class=\"list-group-item list-group-item-action\" data-id=\"${id}\" data-nombre=\"${nombre}\"><div class=\"fw-semibold\">${escapeHTML(nombre)}</div><div class=\"small text-muted\">ID ${escapeHTML(id)}</div></button>`;
+        }).join('');
+        prodSug.style.display='block';
+      }
+      async function buscarProdPedido(term){
+        const t = (term||'').trim();
+        if (!t) { renderProdSug([]); return; }
+        const url = isFinite(Number(t)) ? (API.producto + '?id=' + encodeURIComponent(t)) : (API.producto + '?buscar=' + encodeURIComponent(t));
+        try{
+          const r = await fetch(url);
+          const data = await r.json();
+          let lista = [];
+          if (r.ok){
+            if (data.producto) lista = [data.producto];
+            else if (Array.isArray(data.productos)) lista = data.productos;
+            else if (Array.isArray(data.data)) lista = data.data;
+          }
+          renderProdSug(lista);
+        } catch{ renderProdSug([]); }
+      }
+      let prodSearchTimer = null;
+      qProdPed?.addEventListener('input', ()=>{ clearTimeout(prodSearchTimer); prodSearchTimer = setTimeout(()=> buscarProdPedido(qProdPed.value), 250); });
+      qProdPed?.addEventListener('focus', ()=>{ if (qProdPed?.value) buscarProdPedido(qProdPed.value); });
+      prodSug?.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-id]');
+        if (!btn) return;
+        agregarItemDetalle({ id_producto: btn.getAttribute('data-id'), nombre: btn.getAttribute('data-nombre'), cantidad: 1, precio_unitario: 0 });
+        prodSug.style.display='none'; prodSug.innerHTML='';
+        if (qProdPed) qProdPed.value='';
+      });
+      document.addEventListener('click', (e)=>{ if (!prodSug?.contains(e.target) && e.target!==qProdPed){ if (prodSug) prodSug.style.display='none'; } });
+      // Guardar pedido
+      document.getElementById('btnGuardarPedido')?.addEventListener('click', async ()=>{
+        const idProv = parseInt(document.getElementById('provPedido')?.value,10)||0;
+        if (!idProv) { alert('Selecciona un proveedor'); return; }
+        if (!detalleItems.length) { alert('Agrega al menos un producto'); return; }
+        const payload = {
+          cabecera: { id_proveedor: idProv, observaciones: document.getElementById('obsPedido')?.value||'' },
+          detalle: detalleItems.map(x=> ({ id_producto: parseInt(x.id_producto,10)||0, cantidad: parseInt(x.cantidad,10)||1, precio_unitario: parseFloat(x.precio_unitario)||0 }))
+        };
+        try{
+          const r = await fetch(API.pedidos, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+          const data = await r.json();
+          if (!data.success) throw new Error(data.error||'No se pudo guardar');
+          modalNuevoInst?.hide();
+          listarPedidos();
+          alert('Pedido creado con ID ' + data.id);
+        } catch(e){ alert('Error: ' + (e?.message||'desconocido')); }
+      });
+    });
+  </script>
+</body>
+</html>

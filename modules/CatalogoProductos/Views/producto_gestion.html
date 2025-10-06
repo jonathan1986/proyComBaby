@@ -87,6 +87,39 @@
 					</div>
 				</form>
 				<div class="alert alert-info mt-3" id="datosAyuda">Primero guarda los datos del producto para habilitar Categorías, Atributos, Proveedores e Imágenes.</div>
+
+				<!-- Panel rápido de Inventario para este producto -->
+				<div id="panelInventario" class="mt-4 d-none">
+					<div class="d-flex justify-content-between align-items-center mb-2">
+						<h2 class="h6 m-0">Inventario del producto</h2>
+						<button type="button" class="btn btn-sm btn-outline-primary" id="btnVerInventario">Ver en Inventario → Movimientos</button>
+					</div>
+					<div class="row g-3">
+						<div class="col-md-4">
+							<div class="card">
+								<div class="card-body">
+									<div class="text-muted small">Stock disponible</div>
+									<div id="stockDisponibleText" class="display-6">-</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-md-8">
+							<div class="card">
+								<div class="card-body">
+									<div class="d-flex justify-content-between align-items-center mb-2">
+										<div class="text-muted small">Últimos movimientos</div>
+									</div>
+									<div class="table-responsive">
+										<table class="table table-sm" id="tablaUltimosMovimientos">
+											<thead><tr><th>Fecha</th><th>Tipo</th><th>Cant.</th><th>Motivo</th></tr></thead>
+											<tbody><tr><td colspan="4" class="text-muted">Sin datos</td></tr></tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<!-- TAB: CATEGORÍAS -->
@@ -273,8 +306,13 @@
 			prodCategorias: window.CATALOGO_BASE + 'Controllers/productos_categorias_api.php',
 			prodAtributos: window.CATALOGO_BASE + 'Controllers/productos_atributos_api.php',
 			proveedor: window.CATALOGO_BASE + 'Controllers/proveedor_api.php',
-			prodProveedores: window.CATALOGO_BASE + 'Controllers/productos_proveedores_api.php'
+			prodProveedores: window.CATALOGO_BASE + 'Controllers/productos_proveedores_api.php',
+			stock: window.CATALOGO_BASE + 'Controllers/stock_api.php',
+			movs: window.CATALOGO_BASE + 'Controllers/inventario_movimientos_api.php'
 		};
+
+		// Ruta a la vista de inventario
+		const INVENTARIO_VIEW = (window.APP_BASE || '/') + 'modules/CatalogoProductos/Views/inventario.html';
 
 		// ===== PROVEEDORES (global: estado y loaders) =====
 		// Mover a ámbito global evita errores de referencia cuando cargarProducto() se ejecuta antes de DOMContentLoaded.
@@ -292,6 +330,45 @@
 					<button type="button" class="btn btn-sm btn-outline-light" data-action="quitar" data-id="${id}">x</button>
 				</span>`;
 			}).join('');
+		}
+
+		// ===== Inventario (panel rápido) =====
+		async function cargarInventarioBasico() {
+			const stockEl = document.getElementById('stockDisponibleText');
+			const tbody = document.querySelector('#tablaUltimosMovimientos tbody');
+			if (!state.productoId) {
+				if (stockEl) stockEl.textContent = '-';
+				if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Guarda el producto primero.</td></tr>';
+				return;
+			}
+			try {
+				// Stock disponible
+				const rs = await fetch(`${ENDPOINTS.stock}?disponible=1&id_producto=${encodeURIComponent(String(state.productoId))}`);
+				const ds = await rs.json();
+				if (rs.ok && (ds.success || ds.ok)) {
+					const val = ds.stock_disponible ?? ds.stock ?? ds.disponible ?? ds.data?.stock ?? null;
+					if (stockEl) stockEl.textContent = val !== null && val !== undefined ? String(val) : '-';
+				} else {
+					if (stockEl) stockEl.textContent = '-';
+				}
+			} catch { if (document.getElementById('stockDisponibleText')) document.getElementById('stockDisponibleText').textContent = '-'; }
+			try {
+				// Últimos movimientos
+				const rm = await fetch(`${ENDPOINTS.movs}?ultimos=1&id_producto=${encodeURIComponent(String(state.productoId))}`);
+				const dm = await rm.json();
+				const lista = Array.isArray(dm.movimientos) ? dm.movimientos : (Array.isArray(dm.data) ? dm.data : []);
+				if (!tbody) return;
+				if (!lista.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Sin datos</td></tr>'; return; }
+				tbody.innerHTML = lista.map(m => {
+					const fecha = escapeHTML(String(m.fecha ?? m.creado_en ?? ''));
+					const tipo = escapeHTML(String(m.tipo ?? m.tipo_movimiento ?? ''));
+					const cant = escapeHTML(String(m.cantidad ?? m.cant ?? ''));
+					const motivo = escapeHTML(String(m.motivo ?? m.descripcion ?? ''));
+					return `<tr><td>${fecha}</td><td>${tipo}</td><td>${cant}</td><td>${motivo}</td></tr>`;
+				}).join('');
+			} catch {
+				if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Sin datos</td></tr>';
+			}
 		}
 
 		window.cargarProveedoresAsignados = async function() {
@@ -522,6 +599,9 @@ document.addEventListener('DOMContentLoaded', () => {
 						window.cargarProveedoresAsignados?.(),
 						cargarImagenes()
 					]);
+					// Inventario: mostrar panel y cargar resumen
+					document.getElementById('panelInventario')?.classList.remove('d-none');
+					cargarInventarioBasico();
 					// Cerrar modal si está abierto
 					const modalEl = document.getElementById('modalBuscarProducto');
 					if (modalEl && window.bootstrap?.Modal) {
@@ -566,6 +646,12 @@ document.addEventListener('DOMContentLoaded', () => {
 					// Limpiar estado
 					state.productoId = null;
 					state.imagenes = [];
+					// Panel inventario: ocultar y limpiar
+					document.getElementById('panelInventario')?.classList.add('d-none');
+					const stockEl = document.getElementById('stockDisponibleText');
+					if (stockEl) stockEl.textContent = '-';
+					const tbodyMov = document.querySelector('#tablaUltimosMovimientos tbody');
+					if (tbodyMov) tbodyMov.innerHTML = '<tr><td colspan="4" class="text-muted">Sin datos</td></tr>';
 					// Mostrar ayuda
 					document.getElementById('datosAyuda').classList.remove('d-none');
 				});
@@ -642,6 +728,9 @@ document.addEventListener('DOMContentLoaded', () => {
 								el.removeAttribute('aria-disabled');
 							});
 							document.getElementById('datosAyuda').classList.add('d-none');
+							// Inventario: mostrar panel y recargar datos
+							document.getElementById('panelInventario')?.classList.remove('d-none');
+							cargarInventarioBasico();
 							if (window.bootstrap?.Toast) showToast('Producto actualizado correctamente');
 						} else {
 							// Crear nuevo via POST
@@ -663,11 +752,21 @@ document.addEventListener('DOMContentLoaded', () => {
 							cargarCategorias();
 							cargarAtributos();
 							window.cargarProveedoresAsignados?.();
+							// Mostrar panel de inventario y cargar datos
+							document.getElementById('panelInventario')?.classList.remove('d-none');
+							cargarInventarioBasico();
 							if (window.bootstrap?.Toast) showToast('Producto guardado correctamente');
 						}
 					} catch (err) {
 						alert('Error: ' + err.message);
 					}
+				});
+
+				// Botón ver inventario con filtros del producto
+				document.getElementById('btnVerInventario')?.addEventListener('click', () => {
+					if (!state.productoId) return;
+					const url = `${INVENTARIO_VIEW}?tab=movs&id_producto=${encodeURIComponent(String(state.productoId))}`;
+					window.location.href = url;
 				});
 
 				// Limpiar formulario
