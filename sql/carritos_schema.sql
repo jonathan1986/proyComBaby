@@ -1,4 +1,5 @@
 -- Script SQL para módulo Carrito de Compras
+-- Compatible con MySQL 5.7
 -- Creación de tablas, relaciones, vistas, índices y triggers
 
 -- Cabecera de carritos (carrito por sesión/cliente)
@@ -33,7 +34,7 @@ CREATE TABLE carritos (
     -- Auditoría
     usuario_creacion VARCHAR(50) COMMENT 'Usuario que creó el registro',
     usuario_actualizacion VARCHAR(50) COMMENT 'Usuario que actualizó el registro'
-) COMMENT='Cabecera de carritos de compras';
+) COMMENT='Cabecera de carritos de compras' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Índices para búsqueda y listados
 CREATE INDEX idx_car_estado_fecha ON carritos(estado, fecha_creacion);
@@ -45,16 +46,20 @@ CREATE INDEX idx_car_cliente ON carritos(id_cliente);
 CREATE TABLE carritos_detalle (
     id_carrito INT NOT NULL COMMENT 'ID del carrito',
     id_producto INT NOT NULL COMMENT 'ID del producto agregado',
-    cantidad INT NOT NULL CHECK (cantidad > 0) COMMENT 'Cantidad solicitada',
-    precio_unitario DECIMAL(10,2) NOT NULL CHECK (precio_unitario >= 0) COMMENT 'Precio unitario al momento de agregar',
-    descuento_monto DECIMAL(10,2) NOT NULL DEFAULT 0.00 CHECK (descuento_monto >= 0) COMMENT 'Descuento absoluto por línea',
-    tasa_impuesto DECIMAL(5,2) NOT NULL DEFAULT 0.00 CHECK (tasa_impuesto >= 0) COMMENT 'Porcentaje de impuesto (ej. 10.00 = 10%)',
+    cantidad INT NOT NULL COMMENT 'Cantidad solicitada',
+    precio_unitario DECIMAL(10,2) NOT NULL COMMENT 'Precio unitario al momento de agregar',
+    descuento_monto DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Descuento absoluto por línea',
+    tasa_impuesto DECIMAL(5,2) NOT NULL DEFAULT 0.00 COMMENT 'Porcentaje de impuesto (ej. 10.00 = 10%)',
     total_linea DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Total de la línea (cantidad*precio - descuento + impuesto)',
 
     PRIMARY KEY (id_carrito, id_producto),
-    FOREIGN KEY (id_carrito) REFERENCES carritos(id_carrito) ON DELETE CASCADE,
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
-) COMMENT='Detalle de productos en el carrito';
+    CONSTRAINT fk_cardet_carrito FOREIGN KEY (id_carrito) REFERENCES carritos(id_carrito) ON DELETE CASCADE,
+    CONSTRAINT fk_cardet_producto FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT chk_cardet_cantidad CHECK (cantidad > 0),
+    CONSTRAINT chk_cardet_precio CHECK (precio_unitario >= 0),
+    CONSTRAINT chk_cardet_descuento CHECK (descuento_monto >= 0),
+    CONSTRAINT chk_cardet_tasa CHECK (tasa_impuesto >= 0)
+) COMMENT='Detalle de productos en el carrito' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Índices para detalle
 CREATE INDEX idx_cardet_carrito ON carritos_detalle(id_carrito);
@@ -62,7 +67,9 @@ CREATE INDEX idx_cardet_producto ON carritos_detalle(id_producto);
 
 
 -- Vista: detalle del carrito con imagen principal del producto (con fallback)
-CREATE OR REPLACE VIEW vista_carrito_detalle_imagen AS
+-- En MySQL 5.7 no existe CREATE OR REPLACE VIEW, usar DROP IF EXISTS
+DROP VIEW IF EXISTS vista_carrito_detalle_imagen;
+CREATE VIEW vista_carrito_detalle_imagen AS
 SELECT
     d.id_carrito,
     d.id_producto,
@@ -90,7 +97,8 @@ LEFT JOIN (
 
 
 -- Vista: resumen de carritos (totales + cantidad de ítems)
-CREATE OR REPLACE VIEW vista_carritos_resumen AS
+DROP VIEW IF EXISTS vista_carritos_resumen;
+CREATE VIEW vista_carritos_resumen AS
 SELECT
     c.id_carrito,
     c.fecha_creacion,
@@ -120,61 +128,119 @@ GROUP BY
     c.total;
 
 
+-- Triggers
 DELIMITER $$
 
 -- BEFORE INSERT: validar estado y calcular total_linea
+DROP TRIGGER IF EXISTS trg_cardet_bi_guardrails$$
 CREATE TRIGGER trg_cardet_bi_guardrails
 BEFORE INSERT ON carritos_detalle
 FOR EACH ROW
 BEGIN
-    DECLARE v_estado ENUM('activo','convertido','abandonado','cancelado');
+    DECLARE v_estado VARCHAR(20);
+    
+    -- Validaciones de datos
+    IF NEW.cantidad <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cantidad debe ser mayor a 0';
+    END IF;
+    
+    IF NEW.precio_unitario < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El precio unitario no puede ser negativo';
+    END IF;
+    
+    IF NEW.descuento_monto < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El descuento no puede ser negativo';
+    END IF;
+    
+    IF NEW.tasa_impuesto < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tasa de impuesto no puede ser negativa';
+    END IF;
+    
+    -- Validar estado del carrito
     SELECT estado INTO v_estado FROM carritos WHERE id_carrito = NEW.id_carrito;
+    
     IF v_estado IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Carrito inexistente';
     END IF;
+    
     IF v_estado <> 'activo' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede modificar el detalle de un carrito no activo';
     END IF;
 
     -- Calcular total de la línea: base = cantidad*precio - descuento; impuesto = base*(tasa/100)
-    SET NEW.total_linea = ROUND(((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)
-                         + GREATEST(0, ((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)) * (NEW.tasa_impuesto/100), 2);
+    SET NEW.total_linea = ROUND(
+        ((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)
+        + GREATEST(0, ((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)) * (NEW.tasa_impuesto/100), 
+        2
+    );
 END$$
 
 -- BEFORE UPDATE: validar estado y recalcular total_linea
+DROP TRIGGER IF EXISTS trg_cardet_bu_guardrails$$
 CREATE TRIGGER trg_cardet_bu_guardrails
 BEFORE UPDATE ON carritos_detalle
 FOR EACH ROW
 BEGIN
-    DECLARE v_estado ENUM('activo','convertido','abandonado','cancelado');
+    DECLARE v_estado VARCHAR(20);
+    
+    -- Validaciones de datos
+    IF NEW.cantidad <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cantidad debe ser mayor a 0';
+    END IF;
+    
+    IF NEW.precio_unitario < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El precio unitario no puede ser negativo';
+    END IF;
+    
+    IF NEW.descuento_monto < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El descuento no puede ser negativo';
+    END IF;
+    
+    IF NEW.tasa_impuesto < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La tasa de impuesto no puede ser negativa';
+    END IF;
+    
+    -- Validar estado del carrito
     SELECT estado INTO v_estado FROM carritos WHERE id_carrito = NEW.id_carrito;
+    
     IF v_estado IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Carrito inexistente';
     END IF;
+    
     IF v_estado <> 'activo' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede modificar el detalle de un carrito no activo';
     END IF;
 
-    SET NEW.total_linea = ROUND(((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)
-                         + GREATEST(0, ((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)) * (NEW.tasa_impuesto/100), 2);
+    -- Recalcular total de la línea
+    SET NEW.total_linea = ROUND(
+        ((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)
+        + GREATEST(0, ((NEW.cantidad * NEW.precio_unitario) - NEW.descuento_monto)) * (NEW.tasa_impuesto/100), 
+        2
+    );
 END$$
 
 -- BEFORE DELETE: validar estado
+DROP TRIGGER IF EXISTS trg_cardet_bd_guardrails$$
 CREATE TRIGGER trg_cardet_bd_guardrails
 BEFORE DELETE ON carritos_detalle
 FOR EACH ROW
 BEGIN
-    DECLARE v_estado ENUM('activo','convertido','abandonado','cancelado');
+    DECLARE v_estado VARCHAR(20);
+    
+    -- Validar estado del carrito
     SELECT estado INTO v_estado FROM carritos WHERE id_carrito = OLD.id_carrito;
+    
     IF v_estado IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Carrito inexistente';
     END IF;
+    
     IF v_estado <> 'activo' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede eliminar el detalle de un carrito no activo';
     END IF;
 END$$
 
 -- AFTER INSERT: recalcular totales del carrito
+DROP TRIGGER IF EXISTS trg_cardet_ai_recalc$$
 CREATE TRIGGER trg_cardet_ai_recalc
 AFTER INSERT ON carritos_detalle
 FOR EACH ROW
@@ -186,9 +252,9 @@ BEGIN
     SET v_id = NEW.id_carrito;
 
     SELECT 
-      COALESCE(SUM(cantidad*precio_unitario),0),
-      COALESCE(SUM(descuento_monto),0),
-      COALESCE(SUM(GREATEST(0, (cantidad*precio_unitario - descuento_monto)) * (tasa_impuesto/100)),0)
+        COALESCE(SUM(cantidad*precio_unitario),0),
+        COALESCE(SUM(descuento_monto),0),
+        COALESCE(SUM(GREATEST(0, (cantidad*precio_unitario - descuento_monto)) * (tasa_impuesto/100)),0)
     INTO v_subtotal, v_desc, v_imp
     FROM carritos_detalle
     WHERE id_carrito = v_id;
@@ -202,6 +268,7 @@ BEGIN
 END$$
 
 -- AFTER UPDATE: recalcular totales del carrito
+DROP TRIGGER IF EXISTS trg_cardet_au_recalc$$
 CREATE TRIGGER trg_cardet_au_recalc
 AFTER UPDATE ON carritos_detalle
 FOR EACH ROW
@@ -213,9 +280,9 @@ BEGIN
     SET v_id = NEW.id_carrito;
 
     SELECT 
-      COALESCE(SUM(cantidad*precio_unitario),0),
-      COALESCE(SUM(descuento_monto),0),
-      COALESCE(SUM(GREATEST(0, (cantidad*precio_unitario - descuento_monto)) * (tasa_impuesto/100)),0)
+        COALESCE(SUM(cantidad*precio_unitario),0),
+        COALESCE(SUM(descuento_monto),0),
+        COALESCE(SUM(GREATEST(0, (cantidad*precio_unitario - descuento_monto)) * (tasa_impuesto/100)),0)
     INTO v_subtotal, v_desc, v_imp
     FROM carritos_detalle
     WHERE id_carrito = v_id;
@@ -229,6 +296,7 @@ BEGIN
 END$$
 
 -- AFTER DELETE: recalcular totales del carrito
+DROP TRIGGER IF EXISTS trg_cardet_ad_recalc$$
 CREATE TRIGGER trg_cardet_ad_recalc
 AFTER DELETE ON carritos_detalle
 FOR EACH ROW
@@ -240,9 +308,9 @@ BEGIN
     SET v_id = OLD.id_carrito;
 
     SELECT 
-      COALESCE(SUM(cantidad*precio_unitario),0),
-      COALESCE(SUM(descuento_monto),0),
-      COALESCE(SUM(GREATEST(0, (cantidad*precio_unitario - descuento_monto)) * (tasa_impuesto/100)),0)
+        COALESCE(SUM(cantidad*precio_unitario),0),
+        COALESCE(SUM(descuento_monto),0),
+        COALESCE(SUM(GREATEST(0, (cantidad*precio_unitario - descuento_monto)) * (tasa_impuesto/100)),0)
     INTO v_subtotal, v_desc, v_imp
     FROM carritos_detalle
     WHERE id_carrito = v_id;
@@ -256,3 +324,6 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- Verificar la creación de objetos
+SELECT 'Script ejecutado correctamente para MySQL 5.7' AS resultado;
