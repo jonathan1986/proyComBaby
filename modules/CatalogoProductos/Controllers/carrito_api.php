@@ -4,18 +4,21 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../../vendor/autoload.php';
 
 use Modules\CatalogoProductos\Controllers\CarritoController;
+use Modules\CatalogoProductos\Models\CarritoLog;
 
 header('Content-Type: application/json; charset=utf-8');
 
 try {
-    $config = require __DIR__ . '/../../../config/database.php';
-    $dsn = "mysql:host={$config['host']};dbname={$config['dbname']};charset={$config['charset']}";
-    $pdo = new PDO($dsn, $config['user'], $config['password'], [
+    $dbConf = require __DIR__ . '/../../../config/database.php';
+    $appConf = require __DIR__ . '/../../../config/app.php';
+    $dsn = "mysql:host={$dbConf['host']};dbname={$dbConf['dbname']};charset={$dbConf['charset']}";
+    $pdo = new PDO($dsn, $dbConf['user'], $dbConf['password'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
     $ctrl = new CarritoController($pdo);
+    $logger = new CarritoLog($pdo);
 
     // Utilidad: lee cuerpo JSON si content-type es application/json
     $rawBody = file_get_contents('php://input');
@@ -35,6 +38,17 @@ try {
                 if (($idUsuario || $token) && !$ctrl->perteneceA($id, $idUsuario, $token)) {
                     http_response_code(403); echo json_encode(['success'=>false,'error'=>'Acceso denegado']); exit;
                 }
+                // Auto-expirar si aplica
+                $dias = (int)($appConf['carrito']['expiracion_dias'] ?? 30);
+                if ($dias > 0) {
+                    $stExp = $pdo->prepare("UPDATE carritos SET estado = 'expirado' WHERE id_carrito = :id AND estado = 'abierto' AND fecha_actualizacion < (NOW() - INTERVAL :dias DAY)");
+                    $stExp->bindValue(':id', $id, PDO::PARAM_INT);
+                    $stExp->bindValue(':dias', $dias, PDO::PARAM_INT);
+                    $stExp->execute();
+                    if ($stExp->rowCount() > 0) {
+                        http_response_code(404); echo json_encode(['success'=>false,'error'=>'Carrito expirado']); exit;
+                    }
+                }
                 echo json_encode(['success'=>true,'carrito'=>$car]);
                 exit;
             }
@@ -42,10 +56,28 @@ try {
             $token = isset($_GET['session_token']) ? (string)$_GET['session_token'] : null;
             $car = $ctrl->obtenerPorUsuarioOToken($idUsuario, $token);
             if (!$car) { http_response_code(404); echo json_encode(['success'=>false,'error'=>'Carrito no encontrado']); exit; }
+            // Auto-expirar si aplica
+            $dias = (int)($appConf['carrito']['expiracion_dias'] ?? 30);
+            if ($dias > 0) {
+                $id = (int)$car['id_carrito'];
+                $stExp = $pdo->prepare("UPDATE carritos SET estado = 'expirado' WHERE id_carrito = :id AND estado = 'abierto' AND fecha_actualizacion < (NOW() - INTERVAL :dias DAY)");
+                $stExp->bindValue(':id', $id, PDO::PARAM_INT);
+                $stExp->bindValue(':dias', $dias, PDO::PARAM_INT);
+                $stExp->execute();
+                if ($stExp->rowCount() > 0) {
+                    http_response_code(404); echo json_encode(['success'=>false,'error'=>'Carrito expirado']); exit;
+                }
+            }
             echo json_encode(['success'=>true,'carrito'=>$car]);
             exit;
 
         case 'POST':
+            // Alias: action=merge -> delega a carrito_merge_api.php para mantener un solo punto de entrada opcional
+            if (isset($_GET['action']) && $_GET['action'] === 'merge') {
+                // Reejecutar el script de merge y salir
+                require __DIR__ . '/carrito_merge_api.php';
+                exit; // el script termina por sí mismo
+            }
             $src = $jsonBody ?? $_POST;
             $payload = [
                 'id_usuario' => $src['id_usuario'] ?? null,
@@ -57,6 +89,8 @@ try {
             ];
             $id = $ctrl->crear($payload);
             $car = $ctrl->obtener($id);
+            // Log crear
+            $logger->registrar($id, 'crear', $payload, $payload['id_usuario'] ?? null, $payload['session_token'] ?? null, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
             echo json_encode(['success'=>true,'carrito'=>$car]);
             exit;
 
@@ -73,6 +107,10 @@ try {
                 http_response_code(403); echo json_encode(['success'=>false,'error'=>'Acceso denegado']); exit;
             }
             $ok = $ctrl->actualizarCabecera($id, $src);
+            // Log actualizar cabecera
+            $idUsuario = $idUsuario ?? ($src['usuario'] ?? null);
+            $token = $token ?? ($src['session_token'] ?? null);
+            $logger->registrar($id, 'actualizar_cabecera', $src, $idUsuario ? (int)$idUsuario : null, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
             echo json_encode(['success'=>$ok]);
             exit;
 
@@ -86,6 +124,8 @@ try {
                 http_response_code(403); echo json_encode(['success'=>false,'error'=>'Acceso denegado']); exit;
             }
             $ok = $ctrl->eliminar($id);
+            // Log eliminar carrito
+            $logger->registrar($id, 'eliminar_carrito', null, $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
             echo json_encode(['success'=>$ok]);
             exit;
 

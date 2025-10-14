@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auditoría de Carrito</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 16px; }
+    .table-fixed thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+    code { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <h1 class="h4 m-0">Auditoría de Carritos</h1>
+      <div class="d-flex gap-2">
+        <a href="catalogo_productos.html" class="btn btn-outline-secondary btn-sm">Volver al catálogo</a>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="filtros" class="row g-2 align-items-end">
+          <div class="col-12 col-sm-6 col-md-2">
+            <label class="form-label small">Token mantenimiento</label>
+            <input type="password" class="form-control form-control-sm" id="token" placeholder="X-Maint-Token" />
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small">ID Carrito</label>
+            <input type="number" class="form-control form-control-sm" id="id_carrito" min="0" />
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Acción</label>
+            <select class="form-select form-select-sm" id="accion">
+              <option value="">(todas)</option>
+              <option>crear</option>
+              <option>actualizar_cabecera</option>
+              <option>agregar_item</option>
+              <option>actualizar_item</option>
+              <option>eliminar_item</option>
+              <option>vaciar</option>
+              <option>eliminar_carrito</option>
+              <option>merge</option>
+              <option>expirar</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Desde</label>
+            <input type="datetime-local" class="form-control form-control-sm" id="desde" />
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label small">Hasta</label>
+            <input type="datetime-local" class="form-control form-control-sm" id="hasta" />
+          </div>
+          <div class="col-6 col-md-1">
+            <label class="form-label small">page</label>
+            <input type="number" class="form-control form-control-sm" id="page" value="1" min="1" />
+          </div>
+          <div class="col-6 col-md-1">
+            <label class="form-label small">size</label>
+            <input type="number" class="form-control form-control-sm" id="pageSize" value="50" min="1" max="200" />
+          </div>
+          <div class="col-12 mt-2">
+            <button class="btn btn-primary btn-sm" type="submit">Buscar</button>
+            <button class="btn btn-outline-success btn-sm" type="button" id="btnExport">Exportar CSV</button>
+            <span class="vr mx-1 d-none d-md-inline"></span>
+            <div class="d-inline-flex align-items-center gap-2">
+              <input type="number" class="form-control form-control-sm" id="purge_dias" placeholder="Días retención" style="max-width:130px" min="1" />
+              <button class="btn btn-outline-danger btn-sm" type="button" id="btnPurge" title="Eliminar logs anteriores a N días">Purgar logs</button>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="btnClear">Limpiar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-hover table-striped table-fixed">
+        <thead>
+          <tr>
+            <th style="width: 90px">ID Log</th>
+            <th style="width: 100px">Carrito</th>
+            <th style="width: 160px">Fecha</th>
+            <th style="width: 160px">Acción</th>
+            <th>Detalles</th>
+            <th style="width: 120px">Usuario</th>
+            <th style="width: 140px">Token</th>
+            <th style="width: 120px">IP</th>
+            <th style="width: 220px">Agente</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-2">
+      <div class="text-muted" id="meta"></div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="prev">« Prev</button>
+        <button class="btn btn-outline-secondary btn-sm" id="next">Next »</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function escapeHTML(s){return (s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+    // Descubre base del módulo
+    (function initBase(){
+      const p = location.pathname.replace(/\\/g,'/');
+      const marker = '/modules/CatalogoProductos/Views/';
+      const idx = p.indexOf(marker);
+      window.CATALOGO_BASE = idx!==-1 ? p.substring(0, idx+1)+'modules/CatalogoProductos/' : '/modules/CatalogoProductos/';
+    })();
+
+    const ENDPOINT = window.CATALOGO_BASE + 'Controllers/carrito_logs_api.php';
+  const ENDPOINT_PURGE = window.CATALOGO_BASE + 'Controllers/carrito_logs_purge.php';
+
+    async function fetchLogs(params, token){
+      const url = new URL(ENDPOINT, location.origin);
+      Object.entries(params).forEach(([k,v])=>{ if(v!=='' && v!=null) url.searchParams.set(k, v); });
+      const resp = await fetch(url.toString(), { headers: { 'X-Maint-Token': token } });
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const data = await resp.json();
+      if(data.success===false) throw new Error(data.error||'Error');
+      return data;
+    }
+
+    function toInputDate(d){
+      if(!d) return '';
+      const dt = new Date(d);
+      if(Number.isNaN(dt.getTime())) return '';
+      const pad=(n)=>('0'+n).slice(-2);
+      return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate())+'T'+pad(dt.getHours())+':'+pad(dt.getMinutes());
+    }
+
+    function renderRows(rows){
+      const tbody = document.getElementById('tbody');
+      if(!rows?.length){ tbody.innerHTML = '<tr><td colspan="9" class="text-muted">Sin resultados</td></tr>'; return; }
+      tbody.innerHTML = rows.map(r=>{
+        let detalles;
+        try { detalles = r.detalles ? JSON.stringify(typeof r.detalles==='string'? JSON.parse(r.detalles): r.detalles, null, 2) : ''; } catch { detalles = String(r.detalles||''); }
+        return `<tr>
+          <td>${escapeHTML(r.id_log)}</td>
+          <td>${escapeHTML(r.id_carrito)}</td>
+          <td>${escapeHTML(r.fecha)}</td>
+          <td><span class="badge text-bg-secondary">${escapeHTML(r.accion)}</span></td>
+          <td><code>${escapeHTML(detalles)}</code></td>
+          <td>${escapeHTML(r.usuario_id??'')}</td>
+          <td class="text-truncate" style="max-width:140px" title="${escapeHTML(r.session_token??'')}">${escapeHTML(r.session_token??'')}</td>
+          <td>${escapeHTML(r.ip??'')}</td>
+          <td class="text-truncate" style="max-width:220px" title="${escapeHTML(r.user_agent??'')}">${escapeHTML(r.user_agent??'')}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function load(pageDelta=0){
+      const token = document.getElementById('token').value.trim();
+      if(!token){ alert('Ingresa el token de mantenimiento'); return; }
+      const id_carrito = document.getElementById('id_carrito').value;
+      const accion = document.getElementById('accion').value;
+      const desde = document.getElementById('desde').value;
+      const hasta = document.getElementById('hasta').value;
+      const pageEl = document.getElementById('page');
+      const pageSize = document.getElementById('pageSize').value;
+      const page = Math.max(1, parseInt(pageEl.value||'1',10) + pageDelta);
+      pageEl.value = String(page);
+
+      try{
+        const data = await fetchLogs({ id_carrito, accion, desde, hasta, page, pageSize }, token);
+        renderRows(data.rows);
+        document.getElementById('meta').textContent = `Total: ${data.total} • Página ${data.page} • Tamaño ${data.pageSize}`;
+      }catch(err){
+        alert('Error al consultar logs: '+err.message);
+      }
+    }
+
+    document.getElementById('filtros').addEventListener('submit', (e)=>{ e.preventDefault(); load(0); });
+    document.getElementById('btnClear').addEventListener('click', ()=>{
+      document.getElementById('id_carrito').value='';
+      document.getElementById('accion').value='';
+      document.getElementById('desde').value='';
+      document.getElementById('hasta').value='';
+      document.getElementById('page').value='1';
+      document.getElementById('pageSize').value='50';
+      document.getElementById('tbody').innerHTML='';
+      document.getElementById('meta').textContent='';
+    });
+    document.getElementById('prev').addEventListener('click', ()=> load(-1));
+    document.getElementById('next').addEventListener('click', ()=> load(1));
+
+    document.getElementById('btnExport').addEventListener('click', ()=>{
+      const token = document.getElementById('token').value.trim();
+      if(!token){ alert('Ingresa el token de mantenimiento'); return; }
+      const params = new URLSearchParams();
+      const id_carrito = document.getElementById('id_carrito').value;
+      const accion = document.getElementById('accion').value;
+      const desde = document.getElementById('desde').value;
+      const hasta = document.getElementById('hasta').value;
+      if(id_carrito) params.set('id_carrito', id_carrito);
+      if(accion) params.set('accion', accion);
+      if(desde) params.set('desde', desde);
+      if(hasta) params.set('hasta', hasta);
+      params.set('format', 'csv');
+      // Enviar token en query para descarga directa (no se pueden setear headers en navegación)
+      params.set('token', token);
+      const url = ENDPOINT + '?' + params.toString();
+      window.location.href = url;
+    });
+
+    document.getElementById('btnPurge').addEventListener('click', async ()=>{
+      const token = document.getElementById('token').value.trim();
+      if(!token){ alert('Ingresa el token de mantenimiento'); return; }
+      const dias = document.getElementById('purge_dias').value.trim();
+      const txt = dias ? `¿Seguro de purgar logs anteriores a ${dias} días?` : '¿Seguro de purgar logs según la retención configurada?';
+      if(!confirm(txt)) return;
+      try{
+        const url = new URL(ENDPOINT_PURGE, location.origin);
+        if(dias) url.searchParams.set('dias', dias);
+        const resp = await fetch(url.toString(), { headers: { 'X-Maint-Token': token } });
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        const data = await resp.json();
+        if(data.success===false) throw new Error(data.error||'Error');
+        alert(`Purgados: ${data.eliminados} (antes: ${data.antes})`);
+        // Opcional: recargar resultados actuales
+        const pageEl = document.getElementById('page');
+        if(pageEl.value) load(0);
+      }catch(err){
+        alert('Error al purgar logs: '+err.message);
+      }
+    });
+  </script>
+</body>
+</html>

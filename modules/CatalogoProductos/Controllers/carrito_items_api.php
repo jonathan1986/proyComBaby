@@ -5,18 +5,23 @@ require_once __DIR__ . '/../../../vendor/autoload.php';
 
 use Modules\CatalogoProductos\Controllers\CarritoItemController;
 use Modules\CatalogoProductos\Controllers\CarritoController;
+use Modules\CatalogoProductos\Models\CarritoLog;
 
 header('Content-Type: application/json; charset=utf-8');
 
 try {
-    $config = require __DIR__ . '/../../../config/database.php';
-    $dsn = "mysql:host={$config['host']};dbname={$config['dbname']};charset={$config['charset']}";
-    $pdo = new PDO($dsn, $config['user'], $config['password'], [
+    $dbConf = require __DIR__ . '/../../../config/database.php';
+    $appConf = require __DIR__ . '/../../../config/app.php';
+    $dsn = "mysql:host={$dbConf['host']};dbname={$dbConf['dbname']};charset={$dbConf['charset']}";
+    $pdo = new PDO($dsn, $dbConf['user'], $dbConf['password'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
-    $ctrl = new CarritoItemController($pdo);
+    // Límite máximo centralizado en config/app.php
+    $MAX_LINEAS = (int)($appConf['carrito']['max_lineas'] ?? 200);
+    $ctrl = new CarritoItemController($pdo, $MAX_LINEAS);
+    $logger = new CarritoLog($pdo);
     $carCtrl = new CarritoController($pdo);
 
     $idCarrito = isset($_GET['id_carrito']) ? (int)$_GET['id_carrito'] : 0;
@@ -34,6 +39,15 @@ try {
 
     switch ($_SERVER['REQUEST_METHOD']) {
         case 'GET':
+            if (isset($_GET['count'])) {
+                // Consulta agregada directa para optimizar (evita traer todas las filas)
+                $st = $pdo->prepare("SELECT COUNT(*) AS lineas, COALESCE(SUM(cantidad),0) AS cantidad_total FROM carrito_items WHERE id_carrito = :c");
+                $st->bindValue(':c', $idCarrito, PDO::PARAM_INT);
+                $st->execute();
+                $row = $st->fetch(PDO::FETCH_ASSOC) ?: ['lineas'=>0,'cantidad_total'=>0];
+                echo json_encode(['success'=>true,'lineas'=>(int)$row['lineas'],'cantidad_total'=>(int)$row['cantidad_total']]);
+                exit;
+            }
             $items = $ctrl->listar($idCarrito);
             echo json_encode(['success'=>true,'items'=>$items]);
             exit;
@@ -47,6 +61,13 @@ try {
             $cantidad = isset($src['cantidad']) ? (int)$src['cantidad'] : 0;
             $precioUnit = isset($src['precio_unit']) && $src['precio_unit'] !== '' ? (float)$src['precio_unit'] : null;
             $idItem = $ctrl->agregar($idCarrito, $idProducto, $cantidad, $precioUnit);
+            // Log
+            $logger->registrar($idCarrito, 'agregar_item', [
+                'id_producto'=>$idProducto,
+                'cantidad'=>$cantidad,
+                'precio_unit'=>$precioUnit,
+                'id_item'=>$idItem
+            ], $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
             echo json_encode(['success'=>true,'id_item'=>$idItem]);
             exit;
 
@@ -61,6 +82,12 @@ try {
             $cantidad = isset($src['cantidad']) ? (int)$src['cantidad'] : 0;
             $precioUnit = isset($src['precio_unit']) && $src['precio_unit'] !== '' ? (float)$src['precio_unit'] : null;
             $ok = $ctrl->actualizar($idCarrito, $idProducto, $cantidad, $precioUnit);
+            // Log
+            $logger->registrar($idCarrito, 'actualizar_item', [
+                'id_producto'=>$idProducto,
+                'cantidad'=>$cantidad,
+                'precio_unit'=>$precioUnit
+            ], $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
             echo json_encode(['success'=>$ok]);
             exit;
 
@@ -68,10 +95,28 @@ try {
             if (($idUsuario || $token) && !$carCtrl->perteneceA($idCarrito, $idUsuario, $token)) {
                 http_response_code(403); echo json_encode(['success'=>false,'error'=>'Acceso denegado']); exit;
             }
-            $idProducto = isset($_GET['id_producto']) ? (int)$_GET['id_producto'] : 0;
-            $ok = $ctrl->eliminar($idCarrito, $idProducto);
-            echo json_encode(['success'=>$ok]);
-            exit;
+            if (isset($_GET['empty'])) {
+                // Vaciar el carrito completo: elimina todas las filas en una sola operación
+                $st = $pdo->prepare("DELETE FROM carrito_items WHERE id_carrito = :c");
+                $st->bindValue(':c', $idCarrito, PDO::PARAM_INT);
+                $ok = $st->execute();
+                // Recalcular totales del carrito (poner en cero)
+                $pdo->prepare("UPDATE carritos SET subtotal=0, descuento_total=0, impuesto_total=0, total=0 WHERE id_carrito=:c")
+                    ->execute([':c'=>$idCarrito]);
+                // Log
+                $logger->registrar($idCarrito, 'vaciar', null, $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
+                echo json_encode(['success'=>$ok,'emptied'=>true]);
+                exit;
+            } else {
+                $idProducto = isset($_GET['id_producto']) ? (int)$_GET['id_producto'] : 0;
+                $ok = $ctrl->eliminar($idCarrito, $idProducto);
+                // Log
+                $logger->registrar($idCarrito, 'eliminar_item', [
+                    'id_producto'=>$idProducto
+                ], $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
+                echo json_encode(['success'=>$ok]);
+                exit;
+            }
 
         default:
             http_response_code(405);

@@ -8,14 +8,32 @@ use PDO;
 class CarritoItem
 {
     private PDO $db;
+    private int $maxLineas;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, int $maxLineas = 200)
     {
         $this->db = $pdo;
+        $this->maxLineas = $maxLineas; // configurable
     }
 
     public function agregar(int $idCarrito, int $idProducto, int $cantidad, ?float $precioUnit = null): int
     {
+        // Verificar si la línea ya existe
+        $stChk = $this->db->prepare("SELECT 1 FROM carrito_items WHERE id_carrito = :c AND id_producto = :p LIMIT 1");
+        $stChk->bindValue(':c', $idCarrito, PDO::PARAM_INT);
+        $stChk->bindValue(':p', $idProducto, PDO::PARAM_INT);
+        $stChk->execute();
+        $existe = (bool)$stChk->fetchColumn();
+        if (!$existe) {
+            // Contar líneas actuales solo si se agregará una nueva
+            $stCount = $this->db->prepare("SELECT COUNT(*) FROM carrito_items WHERE id_carrito = :c");
+            $stCount->bindValue(':c', $idCarrito, PDO::PARAM_INT);
+            $stCount->execute();
+            $lineas = (int)$stCount->fetchColumn();
+            if ($lineas >= $this->maxLineas) {
+                throw new \RuntimeException('Se alcanzó el número máximo de líneas permitido (' . $this->maxLineas . ').');
+            }
+        }
         $sql = "INSERT INTO carrito_items (id_carrito, id_producto, cantidad, precio_unit, subtotal_linea)
                 VALUES (:id_carrito, :id_producto, :cantidad, :precio_unit, 0)";
         $st = $this->db->prepare($sql);

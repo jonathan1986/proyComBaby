@@ -3,11 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <title>Catálogo de Productos</title>
-    <link rel="stylesheet" href="catalogo.css">
-    <script src="catalogo.js" defer></script>
+        <link rel="stylesheet" href="catalogo.css">
+        <script src="catalogo.js" defer></script>
+        <style>
+            .producto-card { border:1px solid #e2e2e2; border-radius:6px; padding:12px; margin:8px 0; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+            .producto-card:hover { border-color:#c8c8c8; }
+        </style>
 </head>
 <body>
-    <h1>Catálogo de Productos</h1>
+        <header style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+            <h1 style="margin:0;">Catálogo de Productos</h1>
+            <a href="carrito.html" id="cartLink" style="text-decoration:none;position:relative;display:inline-flex;align-items:center;gap:.5rem;padding:.5rem .75rem;border:1px solid #ccc;border-radius:6px;background:#f8f9fa;font-size:.9rem;">
+                <span class="bi bi-cart" aria-hidden="true"></span>
+                <span>Carrito</span>
+                <span id="cartBadge" style="background:#0d6efd;color:#fff;display:inline-block;min-width:26px;padding:2px 6px;border-radius:12px;text-align:center;font-size:.75rem;font-weight:600;">0</span>
+            </a>
+        </header>
     <form id="busquedaForm">
         <input type="text" name="nombre" placeholder="Nombre del producto">
         <select name="categoria" id="categoriaSelect">
@@ -17,7 +28,8 @@
         <input type="number" name="precio_max" placeholder="Precio máximo" min="0">
         <button type="submit">Buscar</button>
     </form>
-    <div id="productos"></div>
+    <div id="productos" class="mt-3"></div>
+    <p style="margin-top:2rem" class="small text-muted">Haz clic en "Agregar" para añadir productos al carrito (vista: carrito.html)</p>
 
     <script>
     // Validación en cliente

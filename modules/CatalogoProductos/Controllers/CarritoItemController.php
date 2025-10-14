@@ -10,9 +10,9 @@ class CarritoItemController
 {
     private CarritoItem $model;
 
-    public function __construct(PDO $db)
+    public function __construct(PDO $db, int $maxLineas = 200)
     {
-        $this->model = new CarritoItem($db);
+        $this->model = new CarritoItem($db, $maxLineas);
     }
 
     public function listar(int $idCarrito): array
