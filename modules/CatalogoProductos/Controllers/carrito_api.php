@@ -20,6 +20,12 @@ try {
     $ctrl = new CarritoController($pdo);
     $logger = new CarritoLog($pdo);
 
+    $fetchDesgloseImpuestos = function(int $id) use ($pdo) {
+        $st = $pdo->prepare("SELECT ci.id_impuesto, i.codigo, i.nombre, ci.monto FROM carritos_impuestos ci JOIN impuestos i ON i.id_impuesto = ci.id_impuesto WHERE ci.id_carrito = :id ORDER BY i.codigo");
+        $st->execute([':id'=>$id]);
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    };
+
     // Utilidad: lee cuerpo JSON si content-type es application/json
     $rawBody = file_get_contents('php://input');
     $contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
@@ -49,6 +55,10 @@ try {
                         http_response_code(404); echo json_encode(['success'=>false,'error'=>'Carrito expirado']); exit;
                     }
                 }
+                // Si modo multi, adjuntar desglose
+                if (($car['impuestos_modo'] ?? 'simple') === 'multi') {
+                    $car['impuestos_desglose'] = $fetchDesgloseImpuestos((int)$car['id_carrito']);
+                }
                 echo json_encode(['success'=>true,'carrito'=>$car]);
                 exit;
             }
@@ -67,6 +77,9 @@ try {
                 if ($stExp->rowCount() > 0) {
                     http_response_code(404); echo json_encode(['success'=>false,'error'=>'Carrito expirado']); exit;
                 }
+            }
+            if (($car['impuestos_modo'] ?? 'simple') === 'multi') {
+                $car['impuestos_desglose'] = $fetchDesgloseImpuestos((int)$car['id_carrito']);
             }
             echo json_encode(['success'=>true,'carrito'=>$car]);
             exit;
@@ -107,6 +120,17 @@ try {
                 http_response_code(403); echo json_encode(['success'=>false,'error'=>'Acceso denegado']); exit;
             }
             $ok = $ctrl->actualizarCabecera($id, $src);
+            // Si modo multi, recalcular impuestos
+            try {
+                $stModo = $pdo->prepare("SELECT impuestos_modo FROM carritos WHERE id_carrito = :id");
+                $stModo->execute([':id'=>$id]);
+                $modo = (string)$stModo->fetchColumn();
+                if ($modo === 'multi') {
+                    $call = $pdo->prepare("CALL sp_recalcular_impuestos_carrito(:id)");
+                    $call->execute([':id'=>$id]);
+                    while ($call->nextRowset()) { /* no-op */ }
+                }
+            } catch (Throwable $e) { error_log('[carrito_api][recalcImpuestos] '.$e->getMessage()); }
             // Log actualizar cabecera
             $idUsuario = $idUsuario ?? ($src['usuario'] ?? null);
             $token = $token ?? ($src['session_token'] ?? null);

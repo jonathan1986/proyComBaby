@@ -24,6 +24,23 @@ try {
     $logger = new CarritoLog($pdo);
     $carCtrl = new CarritoController($pdo);
 
+    // Recalcular impuestos en modo multi
+    $recalcImpuestos = function(int $idCar) use ($pdo): void {
+        try {
+            $stModo = $pdo->prepare("SELECT impuestos_modo FROM carritos WHERE id_carrito = :id");
+            $stModo->execute([':id'=>$idCar]);
+            $modo = (string)$stModo->fetchColumn();
+            if ($modo === 'multi') {
+                $call = $pdo->prepare("CALL sp_recalcular_impuestos_carrito(:id)");
+                $call->execute([':id'=>$idCar]);
+                // Consumir posibles resultados adicionales de CALL
+                while ($call->nextRowset()) { /* no-op */ }
+            }
+        } catch (Throwable $e) {
+            error_log('[carrito_items_api][recalcImpuestos] '.$e->getMessage());
+        }
+    };
+
     $idCarrito = isset($_GET['id_carrito']) ? (int)$_GET['id_carrito'] : 0;
     if ($idCarrito <= 0) { http_response_code(400); echo json_encode(['success'=>false,'error'=>'id_carrito requerido']); exit; }
 
@@ -68,6 +85,7 @@ try {
                 'precio_unit'=>$precioUnit,
                 'id_item'=>$idItem
             ], $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
+            $recalcImpuestos($idCarrito);
             echo json_encode(['success'=>true,'id_item'=>$idItem]);
             exit;
 
@@ -88,6 +106,7 @@ try {
                 'cantidad'=>$cantidad,
                 'precio_unit'=>$precioUnit
             ], $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
+            $recalcImpuestos($idCarrito);
             echo json_encode(['success'=>$ok]);
             exit;
 
@@ -105,6 +124,7 @@ try {
                     ->execute([':c'=>$idCarrito]);
                 // Log
                 $logger->registrar($idCarrito, 'vaciar', null, $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
+                $recalcImpuestos($idCarrito);
                 echo json_encode(['success'=>$ok,'emptied'=>true]);
                 exit;
             } else {
@@ -114,6 +134,7 @@ try {
                 $logger->registrar($idCarrito, 'eliminar_item', [
                     'id_producto'=>$idProducto
                 ], $idUsuario, $token, $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null);
+                $recalcImpuestos($idCarrito);
                 echo json_encode(['success'=>$ok]);
                 exit;
             }

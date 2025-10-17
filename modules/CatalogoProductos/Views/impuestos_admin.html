@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin: Impuestos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 16px; }
+    .table-fixed thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+    .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+  </head>
+<body>
+  <div class="container-fluid">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <h1 class="h4 m-0">Administración de Impuestos</h1>
+      <div class="d-flex gap-2">
+        <a href="catalogo_productos.html" class="btn btn-outline-secondary btn-sm">Volver al catálogo</a>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="frmToken" class="row g-2 align-items-end">
+          <div class="col-12 col-sm-6 col-md-3">
+            <label class="form-label small">Token mantenimiento</label>
+            <input type="password" class="form-control form-control-sm" id="token" placeholder="X-Maint-Token" />
+          </div>
+          <div class="col-12 col-sm-6 col-md-3">
+            <button class="btn btn-primary btn-sm" type="button" id="btnLoadAll">Cargar impuestos</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">Catálogo de impuestos</div>
+          <div class="card-body">
+            <form id="frmImp" class="row g-2">
+              <div class="col-4">
+                <label class="form-label small">Código</label>
+                <input type="text" id="imp_codigo" class="form-control form-control-sm" required />
+              </div>
+              <div class="col-8">
+                <label class="form-label small">Nombre</label>
+                <input type="text" id="imp_nombre" class="form-control form-control-sm" required />
+              </div>
+              <div class="col-4">
+                <label class="form-label small">Tipo</label>
+                <select id="imp_tipo" class="form-select form-select-sm">
+                  <option value="porcentaje">porcentaje</option>
+                  <option value="fijo">fijo</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <label class="form-label small">Valor</label>
+                <input type="number" step="0.0001" id="imp_valor" class="form-control form-control-sm" value="18.00" />
+              </div>
+              <div class="col-4">
+                <label class="form-label small">Aplica sobre</label>
+                <select id="imp_aplica" class="form-select form-select-sm">
+                  <option value="base_descuento">base_descuento</option>
+                  <option value="subtotal">subtotal</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <label class="form-label small">Activo</label>
+                <select id="imp_activo" class="form-select form-select-sm">
+                  <option value="1">Sí</option>
+                  <option value="0">No</option>
+                </select>
+              </div>
+              <div class="col-8 d-grid">
+                <button class="btn btn-success btn-sm" type="submit">Crear impuesto</button>
+              </div>
+            </form>
+            <hr/>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped table-hover table-fixed">
+                <thead><tr><th>ID</th><th>Código</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Activo</th><th></th></tr></thead>
+                <tbody id="imp_tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-header">Asignación de impuestos por producto</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label small">Buscar producto</label>
+              <div class="d-flex gap-2 align-items-end flex-wrap">
+                <input type="text" id="pi_buscar" class="form-control form-control-sm" placeholder="Nombre o término" style="max-width:320px;" />
+                <button class="btn btn-outline-primary btn-sm" id="btnBuscarProd" type="button">Buscar</button>
+              </div>
+              <div class="table-responsive mt-2" id="pi_results_wrap" style="display:none;">
+                <table class="table table-sm table-striped table-hover table-fixed">
+                  <thead><tr><th>ID</th><th>Nombre</th><th>Precio</th><th></th></tr></thead>
+                  <tbody id="pi_results"></tbody>
+                </table>
+              </div>
+            </div>
+            <form id="frmProdImp" class="row g-2 align-items-end">
+              <div class="col-6">
+                <label class="form-label small">ID Producto</label>
+                <input type="number" id="pi_id_producto" class="form-control form-control-sm" required />
+              </div>
+              <div class="col-6">
+                <label class="form-label small">ID Impuesto</label>
+                <div class="d-flex gap-2">
+                  <input type="number" id="pi_id_impuesto" class="form-control form-control-sm" placeholder="ID" />
+                  <select id="pi_sel_impuesto" class="form-select form-select-sm">
+                    <option value="">(selecciona)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-12 d-flex gap-2">
+                <button class="btn btn-success btn-sm" type="submit">Asignar</button>
+                <button class="btn btn-outline-danger btn-sm" type="button" id="btnDelPI">Quitar</button>
+              </div>
+            </form>
+            <hr/>
+            <div class="d-flex gap-2 align-items-end mb-2">
+              <div>
+                <label class="form-label small">Ver asignaciones de producto</label>
+                <input type="number" id="pi_ver_producto" class="form-control form-control-sm" placeholder="ID producto" />
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnVerPI">Ver</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped table-hover table-fixed">
+                <thead><tr><th>ID Impuesto</th><th>Código</th><th>Nombre</th><th>Tipo</th><th>Valor</th></tr></thead>
+                <tbody id="pi_tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function escapeHTML(s){return (s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+    (function initBase(){
+      const p = location.pathname.replace(/\\/g,'/');
+      const marker = '/modules/CatalogoProductos/Views/';
+      const idx = p.indexOf(marker);
+      window.CATALOGO_BASE = idx!==-1 ? p.substring(0, idx+1)+'modules/CatalogoProductos/' : '/modules/CatalogoProductos/';
+    })();
+    const API = {
+      impuestos: window.CATALOGO_BASE + 'Controllers/impuestos_api.php',
+      prodImp: window.CATALOGO_BASE + 'Controllers/productos_impuestos_api.php',
+      producto: window.CATALOGO_BASE + 'Controllers/producto_api.php'
+    };
+
+    function maintHeaders(){
+      const t = document.getElementById('token').value.trim();
+      return t ? { 'X-Maint-Token': t, 'Content-Type': 'application/json' } : { 'Content-Type':'application/json' };
+    }
+
+    async function apiGet(url){ const r = await fetch(url, { headers: maintHeaders() }); if(!r.ok) throw new Error('HTTP '+r.status); const j = await r.json(); if(j.success===false) throw new Error(j.error||'Error'); return j; }
+    async function apiSend(url, method, body){ const r = await fetch(url, { method, headers: maintHeaders(), body: JSON.stringify(body) }); if(!r.ok) throw new Error('HTTP '+r.status); const j = await r.json(); if(j.success===false) throw new Error(j.error||'Error'); return j; }
+
+    // Catálogo: listar
+    async function loadImpuestos(){
+      try{
+        const data = await apiGet(API.impuestos);
+        const tbody = document.getElementById('imp_tbody');
+        tbody.innerHTML = (data.impuestos||[]).map(x=>`<tr>
+          <td>${escapeHTML(x.id_impuesto)}</td>
+          <td class="code">${escapeHTML(x.codigo)}</td>
+          <td>${escapeHTML(x.nombre)}</td>
+          <td>${escapeHTML(x.tipo)}</td>
+          <td>${escapeHTML(x.valor)}</td>
+          <td>${x.activo ? 'Sí' : 'No'}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" data-edit="${escapeHTML(x.id_impuesto)}">Editar</button>
+            <button class="btn btn-sm btn-outline-danger" data-del="${escapeHTML(x.id_impuesto)}">Borrar</button>
+          </td>
+        </tr>`).join('');
+        // Poblar selector para asignación
+        const sel = document.getElementById('pi_sel_impuesto');
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">(selecciona)</option>' + (data.impuestos||[]).map(x=>`<option value="${escapeHTML(x.id_impuesto)}">${escapeHTML(x.codigo)} - ${escapeHTML(x.nombre)}</option>`).join('');
+        // Mantener selección previa si coincide
+        if ([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+      }catch(e){ alert('Error listando impuestos: '+e.message); }
+    }
+
+    document.getElementById('btnLoadAll').addEventListener('click', loadImpuestos);
+
+    // Crear
+    document.getElementById('frmImp').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const payload = {
+        codigo: document.getElementById('imp_codigo').value.trim(),
+        nombre: document.getElementById('imp_nombre').value.trim(),
+        tipo: document.getElementById('imp_tipo').value,
+        valor: parseFloat(document.getElementById('imp_valor').value||'0'),
+        aplica_sobre: document.getElementById('imp_aplica').value,
+        activo: parseInt(document.getElementById('imp_activo').value,10)
+      };
+      try { await apiSend(API.impuestos, 'POST', payload); await loadImpuestos(); } catch(e){ alert('Error creando: '+e.message); }
+    });
+
+    // Delegación: editar / borrar
+    document.addEventListener('click', async (e)=>{
+      const btnDel = e.target.closest('[data-del]');
+      if(btnDel){
+        if(!confirm('¿Eliminar impuesto?')) return;
+        const id = btnDel.getAttribute('data-del');
+        try{ const u = new URL(API.impuestos, location.origin); u.searchParams.set('id', id);
+          await fetch(u, { method:'DELETE', headers: maintHeaders() }).then(r=>r.json());
+          await loadImpuestos();
+        }catch(err){ alert('Error eliminando: '+err.message); }
+        return;
+      }
+      const btnEd = e.target.closest('[data-edit]');
+      if(btnEd){
+        const id = btnEd.getAttribute('data-edit');
+        const nombre = prompt('Nuevo nombre (deja vacío para no cambiar)');
+        const valor = prompt('Nuevo valor (deja vacío para no cambiar)');
+        const activo = prompt('Activo? 1=Sí, 0=No (deja vacío para no cambiar)');
+        const payload = {};
+        if (nombre) payload.nombre = nombre;
+        if (valor!==null && valor!=='') payload.valor = parseFloat(valor);
+        if (activo!==null && activo!=='') payload.activo = parseInt(activo,10);
+        if (Object.keys(payload).length===0) return;
+        try{ const u = new URL(API.impuestos, location.origin); u.searchParams.set('id', id); await apiSend(u, 'PATCH', payload); await loadImpuestos(); }
+        catch(err){ alert('Error actualizando: '+err.message); }
+      }
+    });
+
+    // Asignaciones producto-impuesto
+    document.getElementById('frmProdImp').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      // Si se eligió en el selector, usar ese ID
+      const selId = document.getElementById('pi_sel_impuesto').value;
+      if (selId && !document.getElementById('pi_id_impuesto').value) {
+        document.getElementById('pi_id_impuesto').value = selId;
+      }
+      const payload = {
+        id_producto: parseInt(document.getElementById('pi_id_producto').value,10),
+        id_impuesto: parseInt(document.getElementById('pi_id_impuesto').value,10)
+      };
+      try{ await apiSend(API.prodImp, 'POST', payload); await verAsignaciones(); }
+      catch(err){ alert('Error asignando: '+err.message); }
+    });
+
+    document.getElementById('btnDelPI').addEventListener('click', async ()=>{
+      const p = document.getElementById('pi_id_producto').value;
+      const i = document.getElementById('pi_id_impuesto').value;
+      if(!p || !i) { alert('Completa IDs para quitar'); return; }
+      if(!confirm('¿Quitar impuesto del producto?')) return;
+      try{ const u = new URL(API.prodImp, location.origin); u.searchParams.set('id_producto', p); u.searchParams.set('id_impuesto', i); await fetch(u, { method:'DELETE', headers: maintHeaders() }).then(r=>r.json()); await verAsignaciones(); }
+      catch(err){ alert('Error quitando: '+err.message); }
+    });
+
+    async function verAsignaciones(){
+      const p = document.getElementById('pi_ver_producto').value || document.getElementById('pi_id_producto').value;
+      if(!p) { document.getElementById('pi_tbody').innerHTML=''; return; }
+      try{ const u = new URL(API.prodImp, location.origin); u.searchParams.set('id_producto', p); const data = await apiGet(u);
+        document.getElementById('pi_tbody').innerHTML = (data.impuestos||[]).map(x=>`<tr>
+          <td>${escapeHTML(x.id_impuesto)}</td>
+          <td class="code">${escapeHTML(x.codigo||'')}</td>
+          <td>${escapeHTML(x.nombre||'')}</td>
+          <td>${escapeHTML(x.tipo||'')}</td>
+          <td>${escapeHTML(x.valor||'')}</td>
+        </tr>`).join('');
+      }catch(err){ alert('Error consultando asignaciones: '+err.message); }
+    }
+    document.getElementById('btnVerPI').addEventListener('click', verAsignaciones);
+
+    // Buscar productos
+    document.getElementById('btnBuscarProd').addEventListener('click', async ()=>{
+      const q = document.getElementById('pi_buscar').value.trim();
+      if(!q) { alert('Ingresa un término'); return; }
+      try{
+        const u = new URL(API.producto, location.origin); u.searchParams.set('buscar', q);
+        const data = await apiGet(u);
+        const rows = data.productos||[];
+        const wrap = document.getElementById('pi_results_wrap');
+        const tb = document.getElementById('pi_results');
+        wrap.style.display = rows.length ? '' : 'none';
+        tb.innerHTML = rows.map(p=>`<tr>
+          <td>${escapeHTML(p.id_producto)}</td>
+          <td>${escapeHTML(p.nombre)}</td>
+          <td>${escapeHTML(p.precio)}</td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-primary" data-pick-prod="${escapeHTML(p.id_producto)}">Elegir</button></td>
+        </tr>`).join('');
+      }catch(err){ alert('Error buscando productos: '+err.message); }
+    });
+
+    document.addEventListener('click', (e)=>{
+      const btnPick = e.target.closest('[data-pick-prod]');
+      if(btnPick){
+        const id = btnPick.getAttribute('data-pick-prod');
+        document.getElementById('pi_id_producto').value = id;
+        document.getElementById('pi_ver_producto').value = id;
+      }
+    });
+  </script>
+</body>
+</html>

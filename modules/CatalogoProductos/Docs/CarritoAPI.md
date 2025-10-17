@@ -213,6 +213,72 @@ curl -X POST -H 'Content-Type: application/json' \
 	```
 	La vista HTML incluye un botón “Exportar CSV” que construye esta URL con los filtros actuales.
 
+	## Impuestos (modo multi)
+
+	Además del modo simple (un solo porcentaje en `carritos.impuesto_pct`), el módulo soporta múltiples impuestos por producto con desglose.
+
+	### Activación
+	- Cada carrito tiene `carritos.impuestos_modo` con valores `simple` (default) o `multi`.
+	- Para activar en un carrito existente:
+	```
+	UPDATE carritos SET impuestos_modo='multi' WHERE id_carrito=...;
+	```
+	- Al mutar ítems en modo `multi`, el backend recalcula automáticamente los impuestos usando el SP `sp_recalcular_impuestos_carrito`.
+
+	### Administración (APIs y panel)
+	- Catálogo de impuestos (token mantenimiento requerido):
+	  - `modules/CatalogoProductos/Controllers/impuestos_api.php`
+	    - GET: lista todos o `?codigo=IVA`
+	    - POST: crear `{ codigo, nombre, tipo('porcentaje'|'fijo'), valor, aplica_sobre('base_descuento'|'subtotal'), activo }`
+	    - PATCH/PUT: actualizar por `?id=...`
+	    - DELETE: eliminar por `?id=...`
+	- Asignación a productos (token mantenimiento requerido):
+	  - `modules/CatalogoProductos/Controllers/productos_impuestos_api.php`
+	    - GET `?id_producto=...`: lista impuestos asignados
+	    - POST `{ id_producto, id_impuesto }`: asignar
+	    - DELETE `?id_producto=...&id_impuesto=...`: quitar
+	- Panel HTML simple:
+	  - `modules/CatalogoProductos/Views/impuestos_admin.html`
+	  - Permite: crear/editar/borrar impuestos, buscar productos y asignar/quitar impuestos.
+
+	### Cálculo y desglose
+	- Tablas nuevas:
+	  - `impuestos`, `productos_impuestos`, `carrito_items_impuestos` (snapshot por ítem), `carritos_impuestos` (snapshot por carrito)
+	- Cálculo en modo `multi`:
+	  - Base por ítem = subtotal_línea menos descuento proporcional (si descuento fijo) o menos descuento %.
+	  - Para cada impuesto del producto:
+	    - porcentaje: `monto = base * (valor/100)`
+	    - fijo: `monto = valor * cantidad`
+	  - Los montos se agrupan en `carritos_impuestos` y se actualiza `carritos.impuesto_total` y `carritos.total`.
+	- API carrito (GET): incluye `carrito.impuestos_desglose` cuando `impuestos_modo='multi'`.
+	- Vista `carrito.html`: muestra un bloque “Desglose impuestos” bajo el total cuando la API envía el desglose.
+
+	### Ejemplos
+	- Crear IVA (18%):
+	```
+	curl -X POST \
+	  -H "Content-Type: application/json" \
+	  -H "X-Maint-Token: TU_TOKEN" \
+	  -d '{"codigo":"IVA","nombre":"Impuesto al Valor Agregado","tipo":"porcentaje","valor":18.00,"aplica_sobre":"base_descuento","activo":1}' \
+	  http://localhost:8080/modules/CatalogoProductos/Controllers/impuestos_api.php
+	```
+	- Asignar IVA a producto 123:
+	```
+	curl -X POST \
+	  -H "Content-Type: application/json" \
+	  -H "X-Maint-Token: TU_TOKEN" \
+	  -d '{"id_producto":123,"id_impuesto":<ID_IVA>}' \
+	  http://localhost:8080/modules/CatalogoProductos/Controllers/productos_impuestos_api.php
+	```
+	- Activar multi en carrito:
+	```
+	mysql> UPDATE carritos SET impuestos_modo='multi' WHERE id_carrito=<ID>;
+	```
+
+	### Migración y schema
+	- El schema base ya incluye las tablas y el SP. Para bases existentes aplica el patch condicional:
+	  - `sql/patch_add_multi_impuestos.sql`
+
 	### Retención y purga de logs
 	Endpoint: `modules/CatalogoProductos/Controllers/carrito_logs_purge.php`
 
