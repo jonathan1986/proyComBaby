@@ -201,27 +201,6 @@ END$$
 
 DELIMITER ;
 
-
--- Índice recomendado para mantenimiento y auto-expiración (añadido al schema base)
-CREATE INDEX idx_carritos_estado_fecha ON carritos(estado, fecha_actualizacion);
-
--- Tabla de auditoría de cambios en carritos
-CREATE TABLE carrito_logs (
-    id_log INT AUTO_INCREMENT PRIMARY KEY,
-    id_carrito INT NOT NULL,
-    accion ENUM('crear','actualizar_cabecera','agregar_item','actualizar_item','eliminar_item','vaciar','eliminar_carrito','merge','expirar') NOT NULL,
-    detalles JSON NULL,
-    usuario_id INT NULL,
-    session_token VARCHAR(64) NULL,
-    ip VARCHAR(45) NULL,
-    user_agent VARCHAR(255) NULL,
-    fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_logs_carrito_fecha (id_carrito, fecha),
-    FOREIGN KEY (id_carrito) REFERENCES carritos(id_carrito) ON DELETE CASCADE
-) COMMENT='Auditoría de operaciones de carritos';
-
-
-
 -- =========================
 -- MÓDULO: CARRITO DE COMPRAS
 -- Requisitos cubiertos:
@@ -267,6 +246,25 @@ CREATE TABLE carrito_items (
     FOREIGN KEY (id_carrito) REFERENCES carritos(id_carrito) ON DELETE CASCADE,
     FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
 ) COMMENT='Líneas de productos en el carrito';
+
+
+-- Índice recomendado para mantenimiento y auto-expiración (añadido al schema base)
+CREATE INDEX idx_carritos_estado_fecha ON carritos(estado, fecha_actualizacion);
+
+-- Tabla de auditoría de cambios en carritos
+CREATE TABLE carrito_logs (
+    id_log INT AUTO_INCREMENT PRIMARY KEY,
+    id_carrito INT NOT NULL,
+    accion ENUM('crear','actualizar_cabecera','agregar_item','actualizar_item','eliminar_item','vaciar','eliminar_carrito','merge','expirar') NOT NULL,
+    detalles JSON NULL,
+    usuario_id INT NULL,
+    session_token VARCHAR(64) NULL,
+    ip VARCHAR(45) NULL,
+    user_agent VARCHAR(255) NULL,
+    fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_logs_carrito_fecha (id_carrito, fecha),
+    FOREIGN KEY (id_carrito) REFERENCES carritos(id_carrito) ON DELETE CASCADE
+) COMMENT='Auditoría de operaciones de carritos';
 
 -- Vista para mostrar ítems del carrito con imagen principal del producto (o primera disponible)
 CREATE OR REPLACE VIEW vista_carrito_items AS
