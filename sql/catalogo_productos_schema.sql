@@ -328,6 +328,13 @@ CREATE TRIGGER trg_ci_ai
 AFTER INSERT ON carrito_items
 FOR EACH ROW
 BEGIN
+    DECLARE v_modo VARCHAR(6);
+    SELECT impuestos_modo INTO v_modo FROM carritos WHERE id_carrito = NEW.id_carrito;
+    IF v_modo = 'multi' THEN
+        -- En modo multi, los totales se recalculan vía SP/trigger específico
+        LEAVE trg_ci_ai;
+    END IF;
+    
     DECLARE v_subtotal DECIMAL(12,2);
     DECLARE v_desc_pct DECIMAL(5,2);
     DECLARE v_desc_mto DECIMAL(10,2);
@@ -362,6 +369,12 @@ CREATE TRIGGER trg_ci_au
 AFTER UPDATE ON carrito_items
 FOR EACH ROW
 BEGIN
+    DECLARE v_modo VARCHAR(6);
+    SELECT impuestos_modo INTO v_modo FROM carritos WHERE id_carrito = NEW.id_carrito;
+    IF v_modo = 'multi' THEN
+        LEAVE trg_ci_au;
+    END IF;
+
     DECLARE v_subtotal DECIMAL(12,2);
     DECLARE v_desc_pct DECIMAL(5,2);
     DECLARE v_desc_mto DECIMAL(10,2);
@@ -396,6 +409,12 @@ CREATE TRIGGER trg_ci_ad
 AFTER DELETE ON carrito_items
 FOR EACH ROW
 BEGIN
+    DECLARE v_modo VARCHAR(6);
+    SELECT impuestos_modo INTO v_modo FROM carritos WHERE id_carrito = OLD.id_carrito;
+    IF v_modo = 'multi' THEN
+        LEAVE trg_ci_ad;
+    END IF;
+
     DECLARE v_subtotal DECIMAL(12,2);
     DECLARE v_desc_pct DECIMAL(5,2);
     DECLARE v_desc_mto DECIMAL(10,2);

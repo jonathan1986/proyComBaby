@@ -20,6 +20,65 @@ DELIMITER ;
 CALL sp_add_col_impuestos_modo();
 DROP PROCEDURE IF EXISTS sp_add_col_impuestos_modo;
 
+-- 1b) Agregar columnas descuento_pct y descuento_monto en carritos si no existen
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_add_col_descuento_pct $$
+CREATE PROCEDURE sp_add_col_descuento_pct()
+BEGIN
+  DECLARE v_count INT DEFAULT 0;
+  SELECT COUNT(*) INTO v_count
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'carritos'
+    AND COLUMN_NAME = 'descuento_pct';
+  IF v_count = 0 THEN
+    SET @sql = 'ALTER TABLE carritos ADD COLUMN descuento_pct DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER impuestos_modo';
+    PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+  END IF;
+END $$
+DELIMITER ;
+CALL sp_add_col_descuento_pct();
+DROP PROCEDURE IF EXISTS sp_add_col_descuento_pct;
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_add_col_descuento_monto $$
+CREATE PROCEDURE sp_add_col_descuento_monto()
+BEGIN
+  DECLARE v_count INT DEFAULT 0;
+  SELECT COUNT(*) INTO v_count
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'carritos'
+    AND COLUMN_NAME = 'descuento_monto';
+  IF v_count = 0 THEN
+    SET @sql = 'ALTER TABLE carritos ADD COLUMN descuento_monto DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER descuento_pct';
+    PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+  END IF;
+END $$
+DELIMITER ;
+CALL sp_add_col_descuento_monto();
+DROP PROCEDURE IF EXISTS sp_add_col_descuento_monto;
+
+-- 1c) Agregar columna subtotal_linea en carrito_items si no existe
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_add_col_subtotal_linea $$
+CREATE PROCEDURE sp_add_col_subtotal_linea()
+BEGIN
+  DECLARE v_count INT DEFAULT 0;
+  SELECT COUNT(*) INTO v_count
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'carrito_items'
+    AND COLUMN_NAME = 'subtotal_linea';
+  IF v_count = 0 THEN
+    SET @sql = 'ALTER TABLE carrito_items ADD COLUMN subtotal_linea DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cantidad';
+    PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+  END IF;
+END $$
+DELIMITER ;
+CALL sp_add_col_subtotal_linea();
+DROP PROCEDURE IF EXISTS sp_add_col_subtotal_linea;
+
 -- 2) Crear tablas si no existen
 -- (usar delimitador ;) para SET/PREPARE/EXECUTE
 SET @sql = 'CREATE TABLE IF NOT EXISTS impuestos (
@@ -159,4 +218,48 @@ proc: BEGIN
          total = v_total
    WHERE id_carrito = p_id_carrito;
 END proc $$
+DELIMITER ;
+
+-- 4) Triggers de recálculo automático cuando cambia el detalle o descuentos/modo
+DELIMITER $$
+DROP TRIGGER IF EXISTS trg_carrito_items_ai_recalc $$
+CREATE TRIGGER trg_carrito_items_ai_recalc
+AFTER INSERT ON carrito_items
+FOR EACH ROW
+BEGIN
+  CALL sp_recalcular_impuestos_carrito(NEW.id_carrito);
+END $$
+
+DROP TRIGGER IF EXISTS trg_carrito_items_au_recalc $$
+CREATE TRIGGER trg_carrito_items_au_recalc
+AFTER UPDATE ON carrito_items
+FOR EACH ROW
+BEGIN
+  IF NEW.id_carrito <> OLD.id_carrito THEN
+    CALL sp_recalcular_impuestos_carrito(OLD.id_carrito);
+    CALL sp_recalcular_impuestos_carrito(NEW.id_carrito);
+  ELSE
+    CALL sp_recalcular_impuestos_carrito(NEW.id_carrito);
+  END IF;
+END $$
+
+DROP TRIGGER IF EXISTS trg_carrito_items_ad_recalc $$
+CREATE TRIGGER trg_carrito_items_ad_recalc
+AFTER DELETE ON carrito_items
+FOR EACH ROW
+BEGIN
+  CALL sp_recalcular_impuestos_carrito(OLD.id_carrito);
+END $$
+
+DROP TRIGGER IF EXISTS trg_carritos_au_recalc $$
+CREATE TRIGGER trg_carritos_au_recalc
+AFTER UPDATE ON carritos
+FOR EACH ROW
+BEGIN
+  IF (NEW.impuestos_modo <> OLD.impuestos_modo)
+     OR (NEW.descuento_pct <> OLD.descuento_pct)
+     OR (NEW.descuento_monto <> OLD.descuento_monto) THEN
+    CALL sp_recalcular_impuestos_carrito(NEW.id_carrito);
+  END IF;
+END $$
 DELIMITER ;
