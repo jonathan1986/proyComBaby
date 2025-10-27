@@ -100,11 +100,17 @@ async function onCatalogoClick(e){
     btn.disabled = true; btn.textContent = '...';
     try {
         const carrito = await ensureCarrito();
+        const token = ensureToken();
         const body = { id_producto: Number(idProd), cantidad: qty };
-        const url = `${ENDPOINTS.items}?id_carrito=${encodeURIComponent(carrito.id_carrito)}`;
+        const url = `${ENDPOINTS.items}?id_carrito=${encodeURIComponent(carrito.id_carrito)}&session_token=${encodeURIComponent(token)}`;
         const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-        const data = await resp.json();
-        if(!resp.ok || data.success===false) throw new Error(data.error||'Error agregando');
+        let data;
+        try { data = await resp.json(); } catch { data = null; }
+        if(!resp.ok || (data && data.success===false)){
+            const msg = (data && (data.error || data.message)) || 'Error agregando';
+            const det = data && data.detail ? ` (${data.detail})` : '';
+            throw new Error(msg + det);
+        }
         flash(card, 'Producto agregado');
         try { await refreshCartBadge(); } catch {}
     } catch(err){
