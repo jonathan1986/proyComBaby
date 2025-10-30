@@ -24,6 +24,7 @@ class StockRepository
     public function listarStock(array $filtros = [], int $limit = 50, int $offset = 0): array
     {
         $where = [];
+        $having = [];
         $params = [];
         if (!empty($filtros['texto'])) {
             $safe = '%' . str_replace(['\\','%','_'], ['\\\\','\\%','\\_'], (string)$filtros['texto']) . '%';
@@ -37,14 +38,19 @@ class StockRepository
         }
         if (isset($filtros['bajo_stock'])) {
             if ((int)$filtros['bajo_stock'] === 1) {
-                $where[] = 'COALESCE(SUM(m.cantidad),0) <= p.stock_minimo';
+                $having[] = 'COALESCE(SUM(m.cantidad),0) <= p.stock_minimo';
             }
         }
+        
+        $whereClause = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+        $havingClause = count($having) ? ('HAVING ' . implode(' AND ', $having)) : '';
+        
         $sql = "SELECT p.id_producto, p.nombre, p.stock_minimo, p.estado, COALESCE(SUM(m.cantidad),0) AS stock_disponible
                 FROM productos p
                 LEFT JOIN inventario_movimientos m ON m.id_producto = p.id_producto
-                " . (count($where) ? ('WHERE ' . implode(' AND ', $where)) : '') . "
+                {$whereClause}
                 GROUP BY p.id_producto, p.nombre, p.stock_minimo, p.estado
+                {$havingClause}
                 ORDER BY p.nombre ASC
                 LIMIT :limit OFFSET :offset";
         $stmt = $this->db->prepare($sql);

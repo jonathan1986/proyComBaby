@@ -690,7 +690,7 @@ DELIMITER $$
 DROP PROCEDURE IF EXISTS sp_recalcular_impuestos_carrito $$
 CREATE PROCEDURE sp_recalcular_impuestos_carrito(IN p_id_carrito INT)
 proc: BEGIN
-  DECLARE v_modo VARCHAR(5);
+  DECLARE v_modo VARCHAR(6);
   DECLARE v_desc_pct DECIMAL(5,2);
   DECLARE v_desc_mto DECIMAL(10,2);
   DECLARE v_subtotal DECIMAL(12,2) DEFAULT 0;
