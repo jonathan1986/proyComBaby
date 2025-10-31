@@ -65,7 +65,51 @@ try {
                 echo json_encode(['success'=>true,'lineas'=>(int)$row['lineas'],'cantidad_total'=>(int)$row['cantidad_total']]);
                 exit;
             }
+            // Listado de ítems (con desglose de impuestos si el carrito está en modo 'multi')
             $items = $ctrl->listar($idCarrito);
+            try {
+                $stModo = $pdo->prepare("SELECT impuestos_modo FROM carritos WHERE id_carrito = :c");
+                $stModo->execute([':c'=>$idCarrito]);
+                $modo = (string)$stModo->fetchColumn();
+                if ($modo === 'multi' && !empty($items)) {
+                    // Traer desglose por ítem en una sola consulta
+                    $sql = "SELECT ciimp.id_item, ciimp.id_impuesto, i.codigo, i.nombre, i.tipo, i.valor, ciimp.base, ciimp.monto
+                            FROM carrito_items_impuestos ciimp
+                            JOIN carrito_items ci ON ciimp.id_item = ci.id_item AND ci.id_carrito = :c
+                            JOIN impuestos i ON i.id_impuesto = ciimp.id_impuesto
+                            ORDER BY i.codigo";
+                    $stImp = $pdo->prepare($sql);
+                    $stImp->execute([':c'=>$idCarrito]);
+                    $map = [];
+                    while ($r = $stImp->fetch(PDO::FETCH_ASSOC)) {
+                        $idItem = (int)$r['id_item'];
+                        if (!isset($map[$idItem])) { $map[$idItem] = ['lista'=>[], 'total'=>0.0]; }
+                        $map[$idItem]['lista'][] = [
+                            'id_impuesto' => (int)$r['id_impuesto'],
+                            'codigo' => $r['codigo'],
+                            'nombre' => $r['nombre'],
+                            'tipo' => $r['tipo'],
+                            'valor' => (float)$r['valor'],
+                            'base' => (float)$r['base'],
+                            'monto' => (float)$r['monto'],
+                        ];
+                        $map[$idItem]['total'] += (float)$r['monto'];
+                    }
+                    // Adjuntar en cada item
+                    foreach ($items as &$it) {
+                        $iid = isset($it['id_item']) ? (int)$it['id_item'] : 0;
+                        if ($iid && isset($map[$iid])) {
+                            $it['impuestos'] = $map[$iid]['lista'];
+                            $it['impuestos_total'] = $map[$iid]['total'];
+                            // base prorrateada (puede venir repetida en todos los impuestos, tomamos la primera)
+                            $it['base_con_descuento'] = isset($map[$iid]['lista'][0]['base']) ? (float)$map[$iid]['lista'][0]['base'] : null;
+                        }
+                    }
+                    unset($it);
+                }
+            } catch (\Throwable $e) {
+                error_log('[carrito_items_api][GET][impuestos] '.$e->getMessage());
+            }
             echo json_encode(['success'=>true,'items'=>$items]);
             exit;
 

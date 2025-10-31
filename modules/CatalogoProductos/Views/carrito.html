@@ -177,11 +177,28 @@
         const img = imgSrc ? `<img src="${escapeHTML(imgSrc)}" class="img-thumb me-2" alt="img">` : '';
         const precio = Number(it.precio_unit||0).toFixed(2);
         const sub = Number(it.subtotal_linea||0).toFixed(2);
+        // Desglose de impuestos por ítem (modo multi)
+        let impHtml = '';
+        if (Array.isArray(it.impuestos) && it.impuestos.length) {
+          const lines = it.impuestos.map(x=>{
+            const label = escapeHTML(`${x.codigo||'IMP'}: ${x.nombre||''}`);
+            const monto = Number(x.monto||0).toFixed(2);
+            return `<div class="d-flex justify-content-between"><span>${label}</span><span>${monto}</span></div>`;
+          }).join('');
+          const totalItemImp = Number(it.impuestos_total||0).toFixed(2);
+          const base = (it.base_con_descuento!==null && it.base_con_descuento!==undefined) ? `Base: ${Number(it.base_con_descuento).toFixed(2)}` : '';
+          impHtml = `<div class="mt-1 small text-muted">
+              <div>Impuestos (ítem): <span class="fw-semibold">${totalItemImp}</span></div>
+              ${base?`<div>${escapeHTML(base)}</div>`:''}
+              <div class="border rounded p-2 mt-1">${lines}</div>
+            </div>`;
+        }
         return `<tr data-producto="${escapeHTML(it.id_producto)}">
           <td>
             <div class="d-flex align-items-center">${img}<div>
               <div class="fw-semibold">${escapeHTML(it.producto||'')}</div>
               <div class="text-muted small">ID: ${escapeHTML(it.id_producto)}</div>
+              ${impHtml}
             </div></div>
           </td>
           <td class="text-center">
@@ -228,7 +245,7 @@
       }
     }
 
-    // Delegaci f3n de eventos: cambiar cantidad y eliminar
+    // Delegación de eventos: cambiar cantidad y eliminar
     document.addEventListener('input', async (e)=>{
       const input = e.target.closest('input.qty');
       if(!input) return;

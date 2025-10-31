@@ -33,10 +33,20 @@ try {
     switch ($method) {
         case 'GET': {
             $idProducto = isset($_GET['id_producto']) ? (int)$_GET['id_producto'] : 0;
+            $idImpuesto = isset($_GET['id_impuesto']) ? (int)$_GET['id_impuesto'] : 0;
             if ($idProducto > 0) {
                 $st = $pdo->prepare('SELECT pi.id_impuesto, i.codigo, i.nombre, i.tipo, i.valor FROM productos_impuestos pi JOIN impuestos i ON i.id_impuesto = pi.id_impuesto WHERE pi.id_producto = :p ORDER BY i.codigo');
                 $st->execute([':p'=>$idProducto]);
                 echo json_encode(['success'=>true,'impuestos'=>$st->fetchAll()]);
+            } elseif ($idImpuesto > 0) {
+                // Listar productos que ya tienen asignado este impuesto
+                $st = $pdo->prepare('SELECT p.id_producto, p.nombre, p.precio, p.estado
+                                      FROM productos_impuestos pi
+                                      JOIN productos p ON p.id_producto = pi.id_producto
+                                      WHERE pi.id_impuesto = :i
+                                      ORDER BY p.nombre');
+                $st->execute([':i'=>$idImpuesto]);
+                echo json_encode(['success'=>true,'productos'=>$st->fetchAll()]);
             } else {
                 // listado simple
                 $st = $pdo->query('SELECT * FROM productos_impuestos ORDER BY id_producto, id_impuesto');

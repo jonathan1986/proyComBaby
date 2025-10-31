@@ -818,18 +818,6 @@ FOR EACH ROW
 BEGIN
   CALL sp_recalcular_impuestos_carrito(OLD.id_carrito);
 END $$
-
-DROP TRIGGER IF EXISTS trg_carritos_au_recalc $$
-CREATE TRIGGER trg_carritos_au_recalc
-AFTER UPDATE ON carritos
-FOR EACH ROW
-BEGIN
-  IF (NEW.impuestos_modo <> OLD.impuestos_modo)
-     OR (NEW.descuento_pct <> OLD.descuento_pct)
-     OR (NEW.descuento_monto <> OLD.descuento_monto) THEN
-    CALL sp_recalcular_impuestos_carrito(NEW.id_carrito);
-  END IF;
-END $$
 DELIMITER ;
 
 -- Fin del MASTER_install.sql

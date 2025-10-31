@@ -170,6 +170,13 @@
 					<h2 class="h5 m-0">Impuestos del producto</h2>
 					<button class="btn btn-sm btn-outline-primary" id="btnRefrescarImpuestos">Refrescar</button>
 				</div>
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        <label for="pg_imp_token" class="form-label">Token de mantenimiento</label>
+                        <input type="password" id="pg_imp_token" class="form-control" placeholder="X-Maint-Token" />
+                        <div class="form-text">Requerido para asignar o quitar impuestos.</div>
+                    </div>
+                </div>
 				<div class="row g-3 mt-1">
 					<div class="col-md-8">
 						<label for="pg_imp_sel" class="form-label">Seleccionar impuesto activo</label>
@@ -735,8 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				async function loadImpuestosActivos(){
 					// Intentar usar ?listar=1&activo=1; si el backend no lo filtra, filtramos aquí
-					const r = await fetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`);
-					const d = await r.json();
+					const d = await apiFetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`, { method: 'GET' }, maintToken);
 					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
 					const activos = lista.filter(i => (i.activo===1||i.activo==='1'||i.activo===true));
 					return activos;
@@ -744,8 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				async function loadImpuestosAsignados(){
 					if (!state.productoId) return [];
-					const r = await fetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`);
-					const d = await r.json();
+					const d = await apiFetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`, { method: 'GET' }, maintToken);
 					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
 					return lista;
 				}
@@ -802,14 +807,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				selImp?.addEventListener('change', ()=>{ btnAddImp.disabled = !selImp.value; });
 				document.getElementById('btnRefrescarImpuestos')?.addEventListener('click', ()=>{ if(state.productoId) cargarUIImpuestos(); });
+
+                // Token mantenimiento (persistir en localStorage)
+                const tokenInput = document.getElementById('pg_imp_token');
+                let maintToken = localStorage.getItem('maintToken') || '';
+                if (tokenInput) tokenInput.value = maintToken;
+                tokenInput?.addEventListener('change', ()=>{
+                    maintToken = (tokenInput.value || '').trim();
+                    localStorage.setItem('maintToken', maintToken);
+                    if (state.productoId) cargarUIImpuestos();
+                });
+
 				btnAddImp?.addEventListener('click', async ()=>{
 					if (!state.productoId) return alert('Primero guarda el producto');
 					const idImp = selImp.value;
 					if (!idImp) return;
+                    if (!maintToken) return alert('Ingresa el token de mantenimiento');
 					try{
-						const resp = await fetch(ENDPOINTS.prodImpuestos, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) });
-						const data = await resp.json();
-						if (!resp.ok || data.success===false) throw new Error(data.error || data.message || data.detail || 'No se pudo asignar');
+						const data = await apiFetch(ENDPOINTS.prodImpuestos, { method:'POST', body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) }, maintToken);
 						cargarUIImpuestos();
 					} catch(err){
 						alert('Error al asignar: ' + err.message);
@@ -822,10 +837,9 @@ document.addEventListener('DOMContentLoaded', () => {
 					if (!state.productoId) return;
 					const idImp = String(btn.getAttribute('data-id'));
 					try{
+						if (!maintToken) return alert('Ingresa el token de mantenimiento');
 						const url = `${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}&id_impuesto=${encodeURIComponent(idImp)}`;
-						const resp = await fetch(url, { method:'DELETE' });
-						const data = await resp.json();
-						if (!resp.ok || data.success===false) throw new Error(data.error || data.message || data.detail || 'No se pudo quitar');
+						const data = await apiFetch(url, { method:'DELETE' }, maintToken);
 						cargarUIImpuestos();
 					} catch(err){
 						alert('Error al quitar: ' + err.message);
@@ -1132,6 +1146,37 @@ document.addEventListener('DOMContentLoaded', () => {
 				toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
 			} catch {}
 		}
+
+async function apiFetch(url, opts={}, token) {
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers['X-Maint-Token'] = token;
+  const res = await fetch(url, {...opts, headers});
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function cargarCatalogoImpuestos(token){
+  return apiFetch('../../Controllers/impuestos_api.php', {method:'GET'}, token);
+}
+
+async function cargarImpuestosProducto(idProducto, token){
+  return apiFetch(`../../Controllers/productos_impuestos_api.php?id_producto=${idProducto}`, {method:'GET'}, token);
+}
+
+async function asignarImpuestoProducto(idProducto, idImpuesto, token){
+  return apiFetch('../../Controllers/productos_impuestos_api.php', {
+    method:'POST',
+    body: JSON.stringify({id_producto:idProducto, id_impuesto:idImpuesto})
+  }, token);
+}
+
+async function quitarImpuestoProducto(idProducto, idImpuesto, token){
+  // También puedes usar query ?token= si prefieres:
+  // const url = `../../Controllers/productos_impuestos_api.php?id_producto=${idProducto}&id_impuesto=${idImpuesto}&token=${encodeURIComponent(token)}`;
+  return apiFetch(`../../Controllers/productos_impuestos_api.php?id_producto=${idProducto}&id_impuesto=${idImpuesto}`, {
+    method:'DELETE'
+  }, token);
+}
 	</script>
 </body>
 </html>

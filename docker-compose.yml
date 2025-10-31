@@ -9,6 +9,9 @@ services:
       - ./docker/php/php.ini:/usr/local/etc/php/conf.d/zz-custom-php.ini:ro
       - ./docker/logs:/var/log
       #- "C:/Users/jonat/Documents/Repositorio/proyBabylovec:/var/www/html"
+    environment:
+      # Token para operaciones de mantenimiento (impuestos_admin, productos_impuestos_api, etc.)
+      CARRITO_MAINT_TOKEN: ${CARRITO_MAINT_TOKEN:?set in .env}
     depends_on:
       - db
 
@@ -25,6 +28,10 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./sql:/docker-entrypoint-initdb.d
+    ulimits:
+      nofile: # Fix memory leak issue on some systems when LimitCORE=infinity (containerd)
+        soft: 1048576
+        hard: 1048576
 
 
   phpmyadmin:

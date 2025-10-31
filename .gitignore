@@ -7,3 +7,6 @@ docker/logs/
 !uploads/.gitkeep
 !uploads/productos/.gitkeep
 !docker/logs/.gitkeep
+
+# Do not commit environment secrets
+#.env
