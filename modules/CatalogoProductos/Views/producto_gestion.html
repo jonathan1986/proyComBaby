@@ -37,6 +37,9 @@
 				<button class="nav-link disabled" id="tab-atributos" data-bs-toggle="tab" data-bs-target="#pane-atributos" type="button" role="tab" aria-disabled="true">Atributos</button>
 			</li>
 			<li class="nav-item" role="presentation">
+				<button class="nav-link disabled" id="tab-impuestos" data-bs-toggle="tab" data-bs-target="#pane-impuestos" type="button" role="tab" aria-disabled="true">Impuestos</button>
+			</li>
+			<li class="nav-item" role="presentation">
 				<button class="nav-link disabled" id="tab-proveedores" data-bs-toggle="tab" data-bs-target="#pane-proveedores" type="button" role="tab" aria-disabled="true">Proveedores</button>
 			</li>
 			<li class="nav-item" role="presentation">
@@ -159,6 +162,41 @@
 					<button class="btn btn-success" id="btnGuardarAtributos">Guardar atributos</button>
 					<small class="text-muted d-block mt-1">Nota: Requiere un endpoint para N:M (productos_atributos_api.php).</small>
 				</div>
+			</div>
+
+			<!-- TAB: IMPUESTOS -->
+			<div class="tab-pane fade" id="pane-impuestos" role="tabpanel" aria-labelledby="tab-impuestos">
+				<div class="d-flex justify-content-between align-items-center mt-3">
+					<h2 class="h5 m-0">Impuestos del producto</h2>
+					<button class="btn btn-sm btn-outline-primary" id="btnRefrescarImpuestos">Refrescar</button>
+				</div>
+				<div class="row g-3 mt-1">
+					<div class="col-md-8">
+						<label for="pg_imp_sel" class="form-label">Seleccionar impuesto activo</label>
+						<select id="pg_imp_sel" class="form-select">
+							<option value="">-- Selecciona --</option>
+						</select>
+					</div>
+					<div class="col-md-4 d-flex align-items-end">
+						<button id="pg_imp_add" class="btn btn-success" disabled>Asignar</button>
+					</div>
+				</div>
+				<div class="table-responsive mt-3">
+					<table class="table table-striped align-middle" id="pg_imp_tbl">
+						<thead>
+							<tr>
+								<th>Código</th>
+								<th>Nombre</th>
+								<th>Tipo</th>
+								<th>Valor</th>
+								<th>Aplica sobre</th>
+								<th>Acciones</th>
+							</tr>
+						</thead>
+						<tbody id="pg_imp_tbody"><tr><td colspan="6" class="text-muted">Sin datos</td></tr></tbody>
+					</table>
+				</div>
+				<small class="text-muted d-block mt-2">Solo se listan impuestos activos.</small>
 			</div>
 
 			<!-- TAB: PROVEEDORES -->
@@ -307,6 +345,8 @@
 			prodAtributos: window.CATALOGO_BASE + 'Controllers/productos_atributos_api.php',
 			proveedor: window.CATALOGO_BASE + 'Controllers/proveedor_api.php',
 			prodProveedores: window.CATALOGO_BASE + 'Controllers/productos_proveedores_api.php',
+			impuestos: window.CATALOGO_BASE + 'Controllers/impuestos_api.php',
+			prodImpuestos: window.CATALOGO_BASE + 'Controllers/productos_impuestos_api.php',
 			stock: window.CATALOGO_BASE + 'Controllers/stock_api.php',
 			movs: window.CATALOGO_BASE + 'Controllers/inventario_movimientos_api.php'
 		};
@@ -586,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					document.getElementById('productoIdText').textContent = String(state.productoId);
 					document.getElementById('productoIdBadge').classList.remove('d-none');
 					// Habilitar tabs
-					['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+					['tab-categorias','tab-atributos','tab-impuestos','tab-proveedores','tab-imagenes'].forEach(id => {
 						const el = document.getElementById(id);
 						el.classList.remove('disabled');
 						el.removeAttribute('aria-disabled');
@@ -627,7 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					document.getElementById('productoIdBadge').classList.add('d-none');
 					document.getElementById('productoIdText').textContent = '';
 					// Deshabilitar tabs
-					['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+					['tab-categorias','tab-atributos','tab-impuestos','tab-proveedores','tab-imagenes'].forEach(id => {
 						const el = document.getElementById(id);
 						el.classList.add('disabled');
 						el.setAttribute('aria-disabled', 'true');
@@ -671,14 +711,124 @@ document.addEventListener('DOMContentLoaded', () => {
 				const tabCategorias = document.getElementById('tab-categorias');
 				const tabAtributos = document.getElementById('tab-atributos');
 				const tabProveedores = document.getElementById('tab-proveedores');
+				const tabImpuestos = document.getElementById('tab-impuestos');
 				tabCategorias?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarCategorias(); });
 				tabAtributos?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarAtributos(); });
-				tabProveedores?.addEventListener('shown.bs.tab', () => {
+				tabImpuestos?.addEventListener('shown.bs.tab', () => { if (state.productoId) cargarUIImpuestos(); });
+					tabProveedores?.addEventListener('shown.bs.tab', () => {
 					if (state.productoId) {
 						window.cargarProveedoresAsignados?.();
 						// Refresca la tabla de resultados para alinear los botones Agregar/Quitar con los asignados
 						const qv = document.getElementById('qProveedor')?.value || '';
-						try { if (typeof buscarProveedores === 'function') buscarProveedores(qv); } catch {}
+							try { if (typeof buscarProveedores === 'function') buscarProveedores(qv); } catch (e) {}
+					}
+				});
+
+				// ===== IMPUESTOS (helpers y eventos) =====
+				const selImp = document.getElementById('pg_imp_sel');
+				const btnAddImp = document.getElementById('pg_imp_add');
+				const tbodyImp = document.getElementById('pg_imp_tbody');
+
+				function fmtTipoValor(tipo, valor){
+					return tipo === 'fijo' ? `fijo ${Number(valor||0).toFixed(2)}` : `porcentaje ${Number(valor||0).toFixed(2)}%`;
+				}
+
+				async function loadImpuestosActivos(){
+					// Intentar usar ?listar=1&activo=1; si el backend no lo filtra, filtramos aquí
+					const r = await fetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`);
+					const d = await r.json();
+					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
+					const activos = lista.filter(i => (i.activo===1||i.activo==='1'||i.activo===true));
+					return activos;
+				}
+
+				async function loadImpuestosAsignados(){
+					if (!state.productoId) return [];
+					const r = await fetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`);
+					const d = await r.json();
+					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
+					return lista;
+				}
+
+				function renderAsignadosImpuestos(asignados){
+					if (!tbodyImp) return;
+					if (!asignados.length){ tbodyImp.innerHTML = '<tr><td colspan="6" class="text-muted">Sin datos</td></tr>'; return; }
+					tbodyImp.innerHTML = asignados.map(it => {
+						const idImp = String(it.id_impuesto ?? it.id ?? '');
+						const codigo = escapeHTML(String(it.codigo ?? ''));
+						const nombre = escapeHTML(String(it.nombre ?? ''));
+						const tipo = escapeHTML(String(it.tipo ?? 'porcentaje'));
+						const valor = escapeHTML(String(Number(it.valor ?? 0).toFixed(2)));
+						const aplica = escapeHTML(String(it.aplica_sobre ?? 'base_descuento'));
+						return `<tr data-id="${escapeHTML(idImp)}">
+							<td>${codigo}</td>
+							<td>${nombre}</td>
+							<td>${tipo}</td>
+							<td>${valor}</td>
+							<td>${aplica}</td>
+							<td><button class="btn btn-sm btn-outline-danger" data-action="quitar" data-id="${escapeHTML(idImp)}">Quitar</button></td>
+						</tr>`;
+					}).join('');
+				}
+
+				function actualizarOpcionesSelectImpuestos(activos, asignados){
+					if (!selImp) return;
+					const asignadosSet = new Set(asignados.map(x => String(x.id_impuesto ?? x.id ?? '')));
+					selImp.innerHTML = '<option value="">-- Selecciona --</option>' + activos.map(i => {
+						const id = String(i.id_impuesto ?? i.id ?? '');
+						const disabled = asignadosSet.has(id) ? 'disabled' : '';
+						const label = `${escapeHTML(String(i.codigo||''))} - ${escapeHTML(String(i.nombre||''))} (${escapeHTML(fmtTipoValor(String(i.tipo||'porcentaje'), i.valor))}, ${escapeHTML(String(i.aplica_sobre||'base_descuento'))})`;
+						return `<option value="${escapeHTML(id)}" ${disabled}>${label}</option>`;
+					}).join('');
+					btnAddImp.disabled = !selImp.value;
+				}
+
+				async function cargarUIImpuestos(){
+					if (!state.productoId) {
+						if (tbodyImp) tbodyImp.innerHTML = '<tr><td colspan="6" class="text-muted">Guarda el producto primero.</td></tr>';
+						btnAddImp.disabled = true; return;
+					}
+					try{
+						const [activos, asignados] = await Promise.all([
+							loadImpuestosActivos(),
+							loadImpuestosAsignados()
+						]);
+						renderAsignadosImpuestos(asignados);
+						actualizarOpcionesSelectImpuestos(activos, asignados);
+					} catch(err){
+						alert('Error cargando impuestos: ' + err.message);
+					}
+				}
+
+				selImp?.addEventListener('change', ()=>{ btnAddImp.disabled = !selImp.value; });
+				document.getElementById('btnRefrescarImpuestos')?.addEventListener('click', ()=>{ if(state.productoId) cargarUIImpuestos(); });
+				btnAddImp?.addEventListener('click', async ()=>{
+					if (!state.productoId) return alert('Primero guarda el producto');
+					const idImp = selImp.value;
+					if (!idImp) return;
+					try{
+						const resp = await fetch(ENDPOINTS.prodImpuestos, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) });
+						const data = await resp.json();
+						if (!resp.ok || data.success===false) throw new Error(data.error || data.message || data.detail || 'No se pudo asignar');
+						cargarUIImpuestos();
+					} catch(err){
+						alert('Error al asignar: ' + err.message);
+					}
+				});
+
+				document.getElementById('pg_imp_tbl')?.addEventListener('click', async (e)=>{
+					const btn = e.target.closest('button[data-action="quitar"]');
+					if (!btn) return;
+					if (!state.productoId) return;
+					const idImp = String(btn.getAttribute('data-id'));
+					try{
+						const url = `${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}&id_impuesto=${encodeURIComponent(idImp)}`;
+						const resp = await fetch(url, { method:'DELETE' });
+						const data = await resp.json();
+						if (!resp.ok || data.success===false) throw new Error(data.error || data.message || data.detail || 'No se pudo quitar');
+						cargarUIImpuestos();
+					} catch(err){
+						alert('Error al quitar: ' + err.message);
 					}
 				});
 
@@ -722,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
 							// Mantener badge y tabs habilitados
 							document.getElementById('productoIdText').textContent = String(state.productoId);
 							document.getElementById('productoIdBadge').classList.remove('d-none');
-							['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+							['tab-categorias','tab-atributos','tab-impuestos','tab-proveedores','tab-imagenes'].forEach(id => {
 								const el = document.getElementById(id);
 								el.classList.remove('disabled');
 								el.removeAttribute('aria-disabled');
@@ -742,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
 							state.productoId = data.id;
 							document.getElementById('productoIdText').textContent = String(state.productoId);
 							document.getElementById('productoIdBadge').classList.remove('d-none');
-							['tab-categorias','tab-atributos','tab-proveedores','tab-imagenes'].forEach(id => {
+							['tab-categorias','tab-atributos','tab-impuestos','tab-proveedores','tab-imagenes'].forEach(id => {
 								const el = document.getElementById(id);
 								el.classList.remove('disabled');
 								el.removeAttribute('aria-disabled');

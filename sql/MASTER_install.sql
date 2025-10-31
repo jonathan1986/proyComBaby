@@ -721,27 +721,33 @@ proc: BEGIN
   FROM carrito_items
   WHERE id_carrito = p_id_carrito;
 
-  -- Recalcular ítem-impuestos
+  -- Recalcular ítem-impuestos (respetando aplica_sobre: 'subtotal' o 'base_descuento')
   INSERT INTO carrito_items_impuestos (id_item, id_impuesto, base, monto)
   SELECT
     ci.id_item,
     pi.id_impuesto,
-    GREATEST(
-      CASE WHEN v_desc_mto > 0 AND v_subtotal > 0
-           THEN ci.subtotal_linea - ROUND((ci.subtotal_linea / v_subtotal) * v_desc_mto, 2)
-           ELSE ci.subtotal_linea - ROUND(ci.subtotal_linea * (v_desc_pct/100), 2)
-      END,
-      0
-    ) AS base_linea,
+    CASE i.aplica_sobre
+      WHEN 'subtotal' THEN ci.subtotal_linea
+      ELSE GREATEST(
+        CASE WHEN v_desc_mto > 0 AND v_subtotal > 0
+             THEN ci.subtotal_linea - ROUND((ci.subtotal_linea / v_subtotal) * v_desc_mto, 2)
+             ELSE ci.subtotal_linea - ROUND(ci.subtotal_linea * (v_desc_pct/100), 2)
+        END,
+        0
+      )
+    END AS base_linea,
     CASE i.tipo
       WHEN 'porcentaje' THEN ROUND(
-        GREATEST(
-          CASE WHEN v_desc_mto > 0 AND v_subtotal > 0
-               THEN ci.subtotal_linea - ROUND((ci.subtotal_linea / v_subtotal) * v_desc_mto, 2)
-               ELSE ci.subtotal_linea - ROUND(ci.subtotal_linea * (v_desc_pct/100), 2)
-          END,
-          0
-        ) * (i.valor/100), 2)
+        (CASE i.aplica_sobre
+           WHEN 'subtotal' THEN ci.subtotal_linea
+           ELSE GREATEST(
+                  CASE WHEN v_desc_mto > 0 AND v_subtotal > 0
+                       THEN ci.subtotal_linea - ROUND((ci.subtotal_linea / v_subtotal) * v_desc_mto, 2)
+                       ELSE ci.subtotal_linea - ROUND(ci.subtotal_linea * (v_desc_pct/100), 2)
+                  END,
+                  0
+                )
+         END) * (i.valor/100), 2)
       WHEN 'fijo' THEN ROUND(i.valor * ci.cantidad, 2)
     END AS monto_impuesto
   FROM carrito_items ci
