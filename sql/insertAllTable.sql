@@ -124,6 +124,6 @@ INSERT INTO inventario_movimientos (id_movimiento, id_producto, fecha, tipo, can
 (25, 3, '2025-10-04 04:42:33', 'entrada', 8, 'recepción pedido', 5, 'system');
 
 INSERT INTO `impuestos` (`id_impuesto`, `codigo`, `nombre`, `tipo`, `valor`, `aplica_sobre`, `activo`) VALUES
-(1, 'IVA15', 'Impuesto al valor agregado 15', 'porcentaje', 15.0000, 'base_descuento', 1),
-(2, 'IVA8', 'Impuesto al valor agregado 8', 'porcentaje', 8.0000, 'base_descuento', 1),
-(3, 'ICE9', 'Impuesto al valor agregado 8', 'porcentaje', 9.0000, 'base_descuento', 1);
+(1, 'IVA 15', 'Impuesto al valor agregado 15', 'porcentaje', 15.0000, 'base_descuento', 1),
+(2, 'IVA 12', 'Impuesto al valor agregado 12', 'porcentaje', 12.0000, 'base_descuento', 1),
+(3, 'ICE 9', 'Impuesto al consumo especial 9', 'porcentaje', 9.0000, 'base_descuento', 1);

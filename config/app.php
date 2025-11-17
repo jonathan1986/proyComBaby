@@ -17,11 +17,14 @@ return [
             $env = getenv('CARRITO_EXP_DIAS');
             return ($env !== false && ctype_digit($env) && (int)$env > 0) ? (int)$env : 30;
         })(),
-        // Token de mantenimiento para ejecutar jobs (como expiración). Recomendado establecer por ENV.
+        // Token de mantenimiento para ejecutar jobs (como expiración).
+        // Recomendado: establecer vía variable de entorno `CARRITO_MAINT_TOKEN` en producción.
+        // Para facilitar desarrollo local, si no existe la ENV se usa un valor por defecto seguro para dev.
         // Variable de entorno: CARRITO_MAINT_TOKEN
         'mantenimiento_token' => (function () {
             $env = getenv('CARRITO_MAINT_TOKEN');
-            return $env !== false ? (string)$env : ''; // si queda vacío, cualquier llamada fallará
+            // Si la variable de entorno existe úsala. En desarrollo, permite un token por defecto para pruebas locales.
+            return $env !== false ? (string)$env : 'changeme-strong-token';
         })(),
         // Días de retención para registros de auditoría (carrito_logs)
         // Variable de entorno: CARRITO_LOGS_RET_DIAS

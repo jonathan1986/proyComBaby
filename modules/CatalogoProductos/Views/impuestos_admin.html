@@ -108,14 +108,9 @@
             <form id="frmProdImp" class="row g-2 align-items-end">
               <div class="col-6">
                 <label class="form-label small">Producto</label>
-                <div class="d-flex align-items-center gap-2">
-                  <span class="badge bg-secondary" id="pi_producto_label" style="display:none;">
-                    ID: <span id="pi_producto_id_text"></span> - <span id="pi_producto_nombre_text"></span>
-                  </span>
-                  <span class="text-muted small" id="pi_producto_empty">No seleccionado</span>
-                  <input type="hidden" id="pi_id_producto" required />
-                  <input type="hidden" id="pi_nombre_producto" />
-                </div>
+                <input type="text" id="pi_producto_empty" class="form-control form-control-sm" placeholder="No seleccionado" readonly />
+                <input type="hidden" id="pi_id_producto" required />
+                <input type="hidden" id="pi_nombre_producto" />
               </div>
               <div class="col-6">
                 <label class="form-label small">Impuesto</label>
@@ -426,11 +421,8 @@
         document.getElementById('pi_id_producto').value = id;
         document.getElementById('pi_nombre_producto').value = nombre;
         document.getElementById('pi_ver_producto').value = id;
-        // Actualizar label visual
-        document.getElementById('pi_producto_id_text').textContent = id;
-        document.getElementById('pi_producto_nombre_text').textContent = nombre;
-        document.getElementById('pi_producto_label').style.display = '';
-        document.getElementById('pi_producto_empty').style.display = 'none';
+        // Actualizar input readonly de visualización
+        document.getElementById('pi_producto_empty').value = `ID: ${id} - ${nombre}`;
       }
     });
   </script>
