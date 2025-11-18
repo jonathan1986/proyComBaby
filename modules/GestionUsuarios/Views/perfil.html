@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Perfil - E-Commerce</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../Assets/css/estilos.css">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#">E-Commerce</a>
+            <button class="btn btn-outline-light" id="btnLogout">Cerrar Sesión</button>
+        </div>
+    </nav>
+
+    <div class="container mb-5">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3">
+                <div class="list-group">
+                    <a href="#perfil" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                        <i class="fas fa-user"></i> Mi Perfil
+                    </a>
+                    <a href="#cambiar-contrasena" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="fas fa-lock"></i> Cambiar Contraseña
+                    </a>
+                    <a href="#pedidos" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="fas fa-shopping-bag"></i> Mis Pedidos
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Contenido -->
+            <div class="col-md-9">
+                <!-- Mi Perfil -->
+                <div id="perfil" class="section-content">
+                    <div class="card shadow">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0"><i class="fas fa-user"></i> Mi Perfil</h4>
+                        </div>
+                        <div class="card-body">
+                            <form id="formPerfil" novalidate>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="nombre_completo" class="form-label">Nombre Completo *</label>
+                                        <input type="text" class="form-control" id="nombre_completo" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="apellido" class="form-label">Apellido</label>
+                                        <input type="text" class="form-control" id="apellido">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="email" class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="email" disabled>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="numero_documento" class="form-label">Cédula/DNI</label>
+                                        <input type="text" class="form-control" id="numero_documento">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="telefono" class="form-label">Teléfono</label>
+                                        <input type="text" class="form-control" id="telefono">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="celular" class="form-label">Celular</label>
+                                        <input type="text" class="form-control" id="celular">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="pais" class="form-label">País</label>
+                                        <input type="text" class="form-control" id="pais">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="ciudad" class="form-label">Ciudad</label>
+                                        <input type="text" class="form-control" id="ciudad">
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="direccion_principal" class="form-label">Dirección Principal</label>
+                                    <textarea class="form-control" id="direccion_principal" rows="2"></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="biografia" class="form-label">Biografía</label>
+                                    <textarea class="form-control" id="biografia" rows="2" placeholder="Cuéntanos sobre ti"></textarea>
+                                </div>
+                                
+                                <div id="alertaPerfil" class="alert d-none" role="alert"></div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Guardar Cambios
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Cambiar Contraseña -->
+                <div id="cambiar-contrasena" class="section-content d-none">
+                    <div class="card shadow">
+                        <div class="card-header bg-warning text-dark">
+                            <h4 class="mb-0"><i class="fas fa-lock"></i> Cambiar Contraseña</h4>
+                        </div>
+                        <div class="card-body">
+                            <form id="formCambiarContrasena" novalidate>
+                                <div class="mb-3">
+                                    <label for="password_actual" class="form-label">Contraseña Actual *</label>
+                                    <input type="password" class="form-control" id="password_actual" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="password_nueva" class="form-label">Nueva Contraseña *</label>
+                                    <input type="password" class="form-control" id="password_nueva" required>
+                                    <small class="form-text text-muted">Mínimo 8 caracteres</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirmar_password" class="form-label">Confirmar Nueva Contraseña *</label>
+                                    <input type="password" class="form-control" id="confirmar_password" required>
+                                </div>
+                                
+                                <div id="alertaCambiarContrasena" class="alert d-none" role="alert"></div>
+                                
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-save"></i> Cambiar Contraseña
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mis Pedidos -->
+                <div id="pedidos" class="section-content d-none">
+                    <div class="card shadow">
+                        <div class="card-header bg-info text-white">
+                            <h4 class="mb-0"><i class="fas fa-shopping-bag"></i> Mis Pedidos</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="resumenPedidos" class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="totalPedidos">0</h5>
+                                            <p class="card-text">Total Pedidos</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="gastoTotal">$0.00</h5>
+                                            <p class="card-text">Gasto Total</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="ticketPromedio">$0.00</h5>
+                                            <p class="card-text">Ticket Promedio</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card text-center">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="ultimoPedido">-</h5>
+                                            <p class="card-text">Último Pedido</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h5 class="mb-3">Historial de Pedidos</h5>
+                            <div id="listaPedidos" class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Número Pedido</th>
+                                            <th>Fecha</th>
+                                            <th>Estado</th>
+                                            <th>Total</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyPedidos">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../Assets/js/perfil.js"></script>
+    <script>
+        // Cambiar vista al hacer clic en el menú
+        document.querySelectorAll('.list-group-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Remover clase activa de todos
+                document.querySelectorAll('.list-group-item').forEach(i => i.classList.remove('active'));
+                // Añadir a este
+                this.classList.add('active');
+                
+                // Ocultar todas las secciones
+                document.querySelectorAll('.section-content').forEach(s => s.classList.add('d-none'));
+                // Mostrar la seleccionada
+                const target = this.getAttribute('href').substring(1);
+                document.getElementById(target).classList.remove('d-none');
+                
+                // Si es pedidos, cargar datos
+                if (target === 'pedidos') {
+                    cargarPedidos();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

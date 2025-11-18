@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS `estados_usuario` (
 -- Tabla principal de usuarios
 CREATE TABLE IF NOT EXISTS `usuarios` (
   `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `uuid_usuario` CHAR(36) NOT NULL UNIQUE DEFAULT (UUID()),
+  `uuid_usuario` CHAR(36) NOT NULL UNIQUE,
   `email` VARCHAR(255) NOT NULL UNIQUE,
   `contrasena_hash` VARCHAR(255) NOT NULL,
   `nombre_completo` VARCHAR(255) NOT NULL,
@@ -486,7 +486,8 @@ ORDER BY u.fecha_creacion DESC;
 DELIMITER //
 
 -- Función: Obtener permisos de un usuario
-CREATE FUNCTION IF NOT EXISTS `fn_obtener_permisos_usuario`(p_usuario_id BIGINT)
+DROP FUNCTION IF EXISTS `fn_obtener_permisos_usuario` //
+CREATE FUNCTION `fn_obtener_permisos_usuario`(p_usuario_id BIGINT)
 RETURNS TEXT
 DETERMINISTIC
 READS SQL DATA
@@ -502,7 +503,8 @@ BEGIN
 END //
 
 -- Función: Validar si usuario tiene permiso
-CREATE FUNCTION IF NOT EXISTS `fn_usuario_tiene_permiso`(p_usuario_id BIGINT, p_permiso_codigo VARCHAR(100))
+DROP FUNCTION IF EXISTS `fn_usuario_tiene_permiso` //
+CREATE FUNCTION `fn_usuario_tiene_permiso`(p_usuario_id BIGINT, p_permiso_codigo VARCHAR(100))
 RETURNS TINYINT
 DETERMINISTIC
 READS SQL DATA
@@ -521,7 +523,8 @@ BEGIN
 END //
 
 -- Función: Obtener rol principal de usuario
-CREATE FUNCTION IF NOT EXISTS `fn_rol_principal_usuario`(p_usuario_id BIGINT)
+DROP FUNCTION IF EXISTS `fn_rol_principal_usuario` //
+CREATE FUNCTION `fn_rol_principal_usuario`(p_usuario_id BIGINT)
 RETURNS VARCHAR(100)
 DETERMINISTIC
 READS SQL DATA
@@ -537,7 +540,9 @@ BEGIN
 END //
 
 -- Procedimiento: Crear usuario nuevo
-CREATE PROCEDURE IF NOT EXISTS `sp_crear_usuario_nuevo`(
+DROP PROCEDURE IF EXISTS `sp_crear_usuario_nuevo` //
+CREATE PROCEDURE `sp_crear_usuario_nuevo`(
+  IN p_uuid_usuario CHAR(36),
   IN p_email VARCHAR(255),
   IN p_nombre_completo VARCHAR(255),
   IN p_contrasena_hash VARCHAR(255),
@@ -548,18 +553,12 @@ CREATE PROCEDURE IF NOT EXISTS `sp_crear_usuario_nuevo`(
 DETERMINISTIC
 MODIFIES SQL DATA
 BEGIN
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    SET p_usuario_id = NULL;
-    SET p_mensaje = 'Error al crear usuario';
-  END;
-  
   IF EXISTS (SELECT 1 FROM usuarios WHERE email = p_email) THEN
     SET p_usuario_id = NULL;
     SET p_mensaje = 'El email ya existe';
   ELSE
-    INSERT INTO usuarios (email, nombre_completo, contrasena_hash, estado_id, activo)
-    VALUES (p_email, p_nombre_completo, p_contrasena_hash, 4, 1);
+    INSERT INTO usuarios (uuid_usuario, email, nombre_completo, contrasena_hash, estado_id, activo)
+    VALUES (p_uuid_usuario, p_email, p_nombre_completo, p_contrasena_hash, 4, 1);
     
     SET p_usuario_id = LAST_INSERT_ID();
     
@@ -575,7 +574,8 @@ BEGIN
 END //
 
 -- Procedimiento: Cambiar contraseña de usuario
-CREATE PROCEDURE IF NOT EXISTS `sp_cambiar_contrasena`(
+DROP PROCEDURE IF EXISTS `sp_cambiar_contrasena` //
+CREATE PROCEDURE `sp_cambiar_contrasena`(
   IN p_usuario_id BIGINT,
   IN p_contrasena_hash_anterior VARCHAR(255),
   IN p_contrasena_hash_nueva VARCHAR(255),
@@ -585,13 +585,13 @@ CREATE PROCEDURE IF NOT EXISTS `sp_cambiar_contrasena`(
 DETERMINISTIC
 MODIFIES SQL DATA
 BEGIN
-  DECLARE SQLEXCEPTION HANDLER FOR SQLEXCEPTION
+  DECLARE usuario_existe INT DEFAULT 0;
+  
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
     SET p_exito = 0;
     SET p_mensaje = 'Error en la base de datos';
   END;
-  
-  DECLARE usuario_existe INT DEFAULT 0;
   
   SELECT COUNT(*) INTO usuario_existe FROM usuarios WHERE id = p_usuario_id;
   
@@ -611,7 +611,8 @@ BEGIN
 END //
 
 -- Procedimiento: Registrar intento de acceso
-CREATE PROCEDURE IF NOT EXISTS `sp_registrar_intento_acceso`(
+DROP PROCEDURE IF EXISTS `sp_registrar_intento_acceso` //
+CREATE PROCEDURE `sp_registrar_intento_acceso`(
   IN p_usuario_id BIGINT,
   IN p_email_intento VARCHAR(255),
   IN p_direccion_ip VARCHAR(45),
@@ -627,7 +628,8 @@ BEGIN
 END //
 
 -- Procedimiento: Bloquear usuario
-CREATE PROCEDURE IF NOT EXISTS `sp_bloquear_usuario`(
+DROP PROCEDURE IF EXISTS `sp_bloquear_usuario` //
+CREATE PROCEDURE `sp_bloquear_usuario`(
   IN p_usuario_id BIGINT,
   IN p_razon VARCHAR(255),
   IN p_admin_id BIGINT
@@ -642,7 +644,8 @@ BEGIN
 END //
 
 -- Procedimiento: Obtener usuario con detalles
-CREATE PROCEDURE IF NOT EXISTS `sp_obtener_usuario`(
+DROP PROCEDURE IF EXISTS `sp_obtener_usuario` //
+CREATE PROCEDURE `sp_obtener_usuario`(
   IN p_usuario_id BIGINT
 )
 DETERMINISTIC
@@ -673,7 +676,8 @@ DELIMITER ;
 
 -- Trigger: Auditar cambios en tabla usuarios
 DELIMITER //
-CREATE TRIGGER IF NOT EXISTS `trg_audit_usuarios_update`
+DROP TRIGGER IF EXISTS `trg_audit_usuarios_update` //
+CREATE TRIGGER `trg_audit_usuarios_update`
 AFTER UPDATE ON usuarios
 FOR EACH ROW
 BEGIN
@@ -704,7 +708,8 @@ DELIMITER ;
 
 -- Trigger: Crear perfil de usuario automáticamente
 DELIMITER //
-CREATE TRIGGER IF NOT EXISTS `trg_crear_perfil_usuario`
+DROP TRIGGER IF EXISTS `trg_crear_perfil_usuario` //
+CREATE TRIGGER `trg_crear_perfil_usuario`
 AFTER INSERT ON usuarios
 FOR EACH ROW
 BEGIN
@@ -714,7 +719,8 @@ DELIMITER ;
 
 -- Trigger: Limpieza automática de sesiones expiradas
 DELIMITER //
-CREATE TRIGGER IF NOT EXISTS `trg_limpiar_sesiones_expiradas`
+DROP TRIGGER IF EXISTS `trg_limpiar_sesiones_expiradas` //
+CREATE TRIGGER `trg_limpiar_sesiones_expiradas`
 AFTER INSERT ON sesiones_usuario
 FOR EACH ROW
 BEGIN
@@ -725,7 +731,8 @@ DELIMITER ;
 
 -- Trigger: Auditar cambios de contraseña
 DELIMITER //
-CREATE TRIGGER IF NOT EXISTS `trg_audit_cambio_contrasena`
+DROP TRIGGER IF EXISTS `trg_audit_cambio_contrasena` //
+CREATE TRIGGER `trg_audit_cambio_contrasena`
 AFTER INSERT ON historial_contrasenas
 FOR EACH ROW
 BEGIN
@@ -759,7 +766,7 @@ ALTER TABLE `historial_acceso` ADD INDEX `idx_email_fecha` (`email_intento`, `fe
 
 /*
 NOTAS IMPORTANTES:
-1. Todos los UUID se generan automáticamente con la función UUID()
+1. Los UUID se generan desde PHP (más seguro y compatible con MySQL 5.7)
 2. Las contraseñas se almacenan como HASH (bcrypt, SHA-256, etc.) desde la aplicación PHP
 3. Los tokens (sesión, recuperación) se generan en PHP con alta entropía
 4. Los triggers de auditoría registran cambios importantes automáticamente
@@ -769,6 +776,7 @@ NOTAS IMPORTANTES:
 8. JSON se usa para datos flexibles (redes sociales, preferencias, cambios)
 
 CONFIGURACIONES RECOMENDADAS EN PHP (config/database.php):
+- Generar UUID en PHP: bin2hex(random_bytes(16)) y formatear como v4
 - Usar prepared statements para todas las consultas
 - Validar y sanitizar entrada del usuario siempre
 - Usar SSL en conexiones a BD
@@ -778,7 +786,8 @@ CONFIGURACIONES RECOMENDADAS EN PHP (config/database.php):
 - 2FA con TOTP o SMS
 
 EJEMPLOS DE USO DESDE PHP:
-- Crear usuario: CALL sp_crear_usuario_nuevo(?, ?, ?, ?, @id, @msg)
+- Generar UUID: Utilidades::generarUuid() (ver Utils/Utilidades.php)
+- Crear usuario: CALL sp_crear_usuario_nuevo(uuid, email, nombre, hash_pass, rol, @id, @msg)
 - Verificar permiso: SELECT fn_usuario_tiene_permiso(?, ?)
 - Obtener usuario: CALL sp_obtener_usuario(?)
 - Cambiar contraseña: CALL sp_cambiar_contrasena(?, ?, ?, @exito, @msg)
