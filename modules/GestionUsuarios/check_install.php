@@ -219,6 +219,7 @@ print_title('4. Conexión a Base de Datos');
 $bootstrap_paths = [
     MODULE_PATH . '/config.php',
     MODULE_PATH . '/../../bootstrap.php',
+    MODULE_PATH . '/../../../bootstrap.php',  // Agregar esta línea
     $_SERVER['DOCUMENT_ROOT'] . '/bootstrap.php',
 ];
 
