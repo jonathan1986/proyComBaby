@@ -717,17 +717,10 @@ BEGIN
 END //
 DELIMITER ;
 
--- Trigger: Limpieza automática de sesiones expiradas
-DELIMITER //
-DROP TRIGGER IF EXISTS `trg_limpiar_sesiones_expiradas` //
-CREATE TRIGGER `trg_limpiar_sesiones_expiradas`
-AFTER INSERT ON sesiones_usuario
-FOR EACH ROW
-BEGIN
-  DELETE FROM sesiones_usuario
-  WHERE fecha_expiracion < NOW() OR (activo = 0 AND fecha_ultima_actividad < DATE_SUB(NOW(), INTERVAL 7 DAY));
-END //
-DELIMITER ;
+-- ⚠️ TRIGGER REMOVIDO: trg_limpiar_sesiones_expiradas
+-- Causa conflicto de recursión en MySQL 5.7 (Error 1442)
+-- Solución: Se usa EVENTO PROGRAMADO en lugar del trigger
+-- Ver sección 10B más abajo
 
 -- Trigger: Auditar cambios de contraseña
 DELIMITER //
@@ -747,6 +740,29 @@ BEGIN
   );
 END //
 DELIMITER ;
+
+-- =============================================================================
+-- 10B. EVENTO PROGRAMADO PARA LIMPIAR SESIONES
+-- =============================================================================
+-- Este evento se ejecuta cada hora para limpiar sesiones expiradas
+-- Alternativa segura al trigger (evita Error 1442 en MySQL 5.7)
+
+DELIMITER //
+DROP EVENT IF EXISTS `evt_limpiar_sesiones_expiradas` //
+CREATE EVENT `evt_limpiar_sesiones_expiradas`
+ON SCHEDULE EVERY 1 HOUR
+STARTS CURRENT_TIMESTAMP
+DO
+BEGIN
+  UPDATE sesiones_usuario
+  SET activo = 0
+  WHERE fecha_expiracion < NOW() 
+     OR (activo = 0 AND fecha_ultima_actividad < DATE_SUB(NOW(), INTERVAL 7 DAY));
+END //
+DELIMITER ;
+
+-- Habilitar el event scheduler
+SET GLOBAL event_scheduler = ON;
 
 -- =============================================================================
 -- 11. ÍNDICES ADICIONALES PARA OPTIMIZACIÓN
