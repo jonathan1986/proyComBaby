@@ -43,6 +43,15 @@ class Router {
      */
     public function ejecutar() {
         try {
+            // Manejar query parameters especiales (ej: ?action=perfil)
+            $queryAction = $_GET['action'] ?? null;
+            
+            // GET /api/index.php?action=perfil (obtener perfil del usuario autenticado)
+            if ($queryAction === 'perfil') {
+                $controller = new UsuarioController($this->pdo);
+                return $controller->obtenerPerfilAutenticado();
+            }
+            
             // Obtener recurso y acción
             $recurso = $this->parametros[0] ?? null;
             $accion = $this->parametros[1] ?? null;

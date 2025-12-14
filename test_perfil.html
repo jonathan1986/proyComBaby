@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Perfil API</title>
+</head>
+<body>
+  <h1>Test Perfil API</h1>
+  <div>
+    <label>Token:</label>
+    <input type="text" id="token" style="width: 500px;" placeholder="Pegar token aquí">
+    <button onclick="testPerfil()">Probar</button>
+  </div>
+  <pre id="resultado"></pre>
+
+  <script>
+    async function testPerfil() {
+      const token = document.getElementById('token').value.trim();
+      const resultado = document.getElementById('resultado');
+      
+      if (!token) {
+        resultado.textContent = 'ERROR: Ingresa un token';
+        return;
+      }
+
+      try {
+        resultado.textContent = 'Consultando...';
+        
+        const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+        
+        resultado.textContent = JSON.stringify(data, null, 2);
+        
+        // Análisis adicional
+        if (data.datos && data.datos.usuario) {
+          const usuario = data.datos.usuario;
+          console.log('Usuario:', usuario);
+          console.log('Roles:', usuario.roles);
+          console.log('Estado ID:', usuario.estado_id);
+          console.log('Activo:', usuario.activo);
+          
+          const rolesArray = usuario.roles ? usuario.roles.split(',').map(r => r.trim()) : [];
+          console.log('Roles como array:', rolesArray);
+          console.log('Incluye ADMINISTRADOR?', rolesArray.includes('ADMINISTRADOR'));
+        }
+      } catch (error) {
+        resultado.textContent = 'ERROR: ' + error.message;
+      }
+    }
+  </script>
+</body>
+</html>

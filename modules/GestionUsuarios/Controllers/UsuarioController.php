@@ -352,6 +352,66 @@ class UsuarioController {
         }
     }
     
+    /**
+     * Obtener perfil del usuario autenticado
+     * GET /api/index.php?action=perfil
+     * Header: Authorization: Bearer <token>
+     */
+    public function obtenerPerfilAutenticado() {
+        try {
+            // Obtener token del header Authorization
+            $token = null;
+            
+            // Soporte para getallheaders() y Apache
+            if (function_exists('getallheaders')) {
+                $headers = getallheaders();
+                if (isset($headers['Authorization'])) {
+                    if (preg_match('/Bearer\s+(.*)$/i', $headers['Authorization'], $matches)) {
+                        $token = $matches[1];
+                    }
+                }
+            } elseif (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+                if (preg_match('/Bearer\s+(.*)$/i', $_SERVER['HTTP_AUTHORIZATION'], $matches)) {
+                    $token = $matches[1];
+                }
+            }
+            
+            if (!$token) {
+                return $this->respuesta(401, 'Token no proporcionado');
+            }
+            
+            // Validar sesión
+            $usuario = $this->modeloUsuario->validarSesion($token);
+            
+            if (!$usuario) {
+                return $this->respuesta(401, 'Sesión inválida o expirada');
+            }
+            
+            // Obtener roles del usuario
+            $roles = $this->modeloUsuario->obtenerRoles($usuario['id']);
+            $codigosRoles = array_column($roles, 'codigo');
+            
+            // Retornar perfil completo con roles
+            return $this->respuesta(200, 'OK', [
+                'usuario' => [
+                    'id' => $usuario['id'],
+                    'uuid_usuario' => $usuario['uuid_usuario'],
+                    'email' => $usuario['email'],
+                    'nombre_completo' => $usuario['nombre_completo'],
+                    'apellido' => $usuario['apellido'] ?? '',
+                    'telefono' => $usuario['telefono'] ?? '',
+                    'celular' => $usuario['celular'] ?? '',
+                    'estado_id' => $usuario['estado_id'],
+                    'activo' => $usuario['activo'],
+                    'roles' => implode(', ', $codigosRoles),
+                    'fecha_creacion' => $usuario['fecha_creacion']
+                ]
+            ]);
+        } catch (Exception $e) {
+            return $this->respuesta(401, $e->getMessage());
+        }
+    }
+    
     // ==================== Métodos auxiliares ====================
     
     /**

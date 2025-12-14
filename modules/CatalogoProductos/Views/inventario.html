@@ -10,8 +10,24 @@
   <style>.tab-pane{padding-top:1rem}</style>
 </head>
 <body>
-  <div class="container my-4">
-    <h1 class="h3">Inventario</h1>
+  <!-- Mensaje de acceso restringido -->
+  <div id="accessDenied" class="container mt-5" style="display: none;">
+    <div class="alert alert-danger text-center">
+      <h4>⚠️ Acceso Restringido</h4>
+      <p>No tienes permisos para acceder a esta página.</p>
+      <p>Roles requeridos: <strong>ADMINISTRADOR</strong> o <strong>GESTOR_CONTENIDOS</strong></p>
+      <a href="../../GestionUsuarios/Views/login.html" class="btn btn-primary mt-3">Ir a Login</a>
+    </div>
+  </div>
+
+  <div class="container my-4" id="mainContent">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h1 class="h3 m-0">Inventario</h1>
+      <div class="d-flex align-items-center gap-2">
+        <span id="userInfo" class="text-muted small me-2"></span>
+        <button class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar Sesión</button>
+      </div>
+    </div>
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dash" type="button">Dashboard</button></li>
       <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stock" type="button">Stock disponible</button></li>
@@ -229,6 +245,98 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.4/dist/umd/simple-datatables.min.js"></script>
   <script>
+    // ==================== AUTENTICACIÓN Y AUTORIZACIÓN ====================
+    
+    const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'GESTOR_CONTENIDOS'];
+    let currentUser = null;
+    let authToken = null;
+
+    // Verificar autenticación al cargar la página
+    (async function verificarAcceso() {
+      try {
+        // Obtener token de localStorage
+        authToken = localStorage.getItem('authToken');
+        
+        if (!authToken) {
+          throw new Error('No hay sesión activa');
+        }
+
+        // Verificar token y obtener datos del usuario
+        const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Token inválido o expirado');
+        }
+
+        const data = await response.json();
+        // El API retorna datos en data.datos.usuario
+        currentUser = data.datos ? data.datos.usuario : data.usuario;
+
+        // Verificar que el usuario esté activo
+        if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
+          throw new Error('Usuario no está activo');
+        }
+
+        // Verificar rol autorizado
+        const userRoles = currentUser.roles ? currentUser.roles.split(',').map(r => r.trim()) : [];
+        const tieneAcceso = userRoles.some(rol => ROLES_PERMITIDOS.includes(rol));
+
+        if (!tieneAcceso) {
+          throw new Error('Rol no autorizado');
+        }
+
+        // Usuario autorizado - mostrar contenido
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('accessDenied').style.display = 'none';
+        document.getElementById('userInfo').textContent = `${currentUser.nombre_completo} (${userRoles.join(', ')})`;
+
+      } catch (error) {
+        console.error('Error de autenticación:', error);
+        // Acceso denegado - mostrar mensaje
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('accessDenied').style.display = 'block';
+        
+        // Redirigir a login después de 3 segundos
+        setTimeout(() => {
+          localStorage.removeItem('authToken');
+          window.location.href = '../../GestionUsuarios/Views/login.html';
+        }, 3000);
+      }
+    })();
+
+    // Cerrar sesión
+    document.getElementById('btnLogout')?.addEventListener('click', () => {
+      localStorage.removeItem('authToken');
+      window.location.href = '../../GestionUsuarios/Views/login.html';
+    });
+
+    // Helper para fetch con autenticación
+    async function apiFetch(url, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+        ...options.headers
+      };
+      
+      const response = await fetch(url, { ...options, headers });
+      
+      if (response.status === 401 || response.status === 403) {
+        alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+        localStorage.removeItem('authToken');
+        window.location.href = '../../GestionUsuarios/Views/login.html';
+        throw new Error('No autorizado');
+      }
+      
+      return response;
+    }
+
+    // ==================== CONFIGURACIÓN ====================
+
     // Rutas dinámicas: calcula APP_BASE y CATALOGO_BASE como en producto_gestion.html
     (function initBasePaths(){
       const currentPath = window.location.pathname.replace(/\\/g,'/');
@@ -267,7 +375,7 @@
           if (movId) movId.value = idp;
           // Rellenar el nombre en el buscador
           try {
-            const pr = await fetch(API.producto + '?id=' + encodeURIComponent(String(idp))).then(r=>r.json());
+            const pr = await apiFetch(API.producto + '?id=' + encodeURIComponent(String(idp))).then(r=>r.json());
             const p = pr.producto || null;
             if (p && qMov) {
               qMov.value = `${p.nombre || ''} (ID ${p.id_producto || idp})`;
@@ -276,7 +384,7 @@
           } catch {}
           // Además, filtra la tabla de movimientos
           try {
-            const mv = await fetch(API.movs + '?id_producto=' + encodeURIComponent(String(idp)) + '&limit=50').then(r=>r.json());
+            const mv = await apiFetch(API.movs + '?id_producto=' + encodeURIComponent(String(idp)) + '&limit=50').then(r=>r.json());
             const tb = document.querySelector('#tablaMovs tbody');
             tb.innerHTML = (mv.movimientos||[]).map(m=>`<tr><td>${escapeHTML(m.fecha)}</td><td>${escapeHTML(m.producto||m.id_producto)}</td><td>${escapeHTML(m.tipo)}</td><td>${escapeHTML(m.cantidad)}</td><td>${escapeHTML(m.motivo||'')}</td></tr>`).join('') || '<tr><td colspan="5" class="text-muted">Sin datos</td></tr>';
           } catch {}
@@ -284,33 +392,33 @@
       } catch {}
       // KPIs básicos
       try {
-        const st = await fetch(API.stock + '?bajo_stock=1&limit=1').then(r=>r.json());
+        const st = await apiFetch(API.stock + '?bajo_stock=1&limit=1').then(r=>r.json());
         document.getElementById('kpiBajoStock').textContent = Array.isArray(st.stock) ? st.stock.length : '-';
       } catch {}
       try {
-        const mv7 = await fetch(API.movs + '?fecha_desde=' + new Date(Date.now()-7*86400000).toISOString().slice(0,19).replace('T',' ')).then(r=>r.json());
+        const mv7 = await apiFetch(API.movs + '?fecha_desde=' + new Date(Date.now()-7*86400000).toISOString().slice(0,19).replace('T',' ')).then(r=>r.json());
         document.getElementById('kpiMov7').textContent = Array.isArray(mv7.movimientos) ? mv7.movimientos.length : '-';
       } catch {}
       try {
-        const pd = await fetch(API.pedidos + '?estado=pendiente&limit=1').then(r=>r.json());
+        const pd = await apiFetch(API.pedidos + '?estado=pendiente&limit=1').then(r=>r.json());
         document.getElementById('kpiPedidos').textContent = Array.isArray(pd.pedidos) ? pd.pedidos.length : '-';
       } catch {}
       // Alertas
       try {
-        const al = await fetch(API.alertas).then(r=>r.json());
+        const al = await apiFetch(API.alertas).then(r=>r.json());
         const tb = document.querySelector('#tablaAlertas tbody');
         tb.innerHTML = (al.alertas||[]).map(a=>`<tr><td>${escapeHTML(a.fecha)}</td><td>${escapeHTML(a.producto)}</td><td>${escapeHTML(a.stock_actual)}</td><td>${escapeHTML(a.stock_minimo)}</td><td><button class="btn btn-sm btn-success" data-id="${escapeHTML(a.id_alerta)}">Atender</button></td></tr>`).join('');
-        tb.addEventListener('click', async (e)=>{ const b=e.target.closest('button[data-id]'); if(!b) return; const fd=new URLSearchParams(); fd.set('id_alerta', b.dataset.id); const r=await fetch(API.alertas+'?atender=1',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()}); if(r.ok) b.closest('tr').remove(); });
+        tb.addEventListener('click', async (e)=>{ const b=e.target.closest('button[data-id]'); if(!b) return; const fd=new URLSearchParams(); fd.set('id_alerta', b.dataset.id); const r=await apiFetch(API.alertas+'?atender=1',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()}); if(r.ok) b.closest('tr').remove(); });
       } catch {}
       // Stock table
       try {
-        const st = await fetch(API.stock + '?limit=100').then(r=>r.json());
+        const st = await apiFetch(API.stock + '?limit=100').then(r=>r.json());
         const tb = document.querySelector('#tablaStock tbody');
         tb.innerHTML = (st.stock||[]).map(x=>`<tr><td>${escapeHTML(x.id_producto)}</td><td>${escapeHTML(x.nombre)}</td><td>${escapeHTML(x.stock_disponible)}</td><td>${escapeHTML(x.stock_minimo)}</td><td>${x.estado==1?'Activo':'Inactivo'}</td></tr>`).join('');
       } catch {}
       // Movimientos
       try {
-        const mv = await fetch(API.movs + '?limit=50').then(r=>r.json());
+        const mv = await apiFetch(API.movs + '?limit=50').then(r=>r.json());
         const tb = document.querySelector('#tablaMovs tbody');
         tb.innerHTML = (mv.movimientos||[]).map(m=>`<tr><td>${escapeHTML(m.fecha)}</td><td>${escapeHTML(m.producto||m.id_producto)}</td><td>${escapeHTML(m.tipo)}</td><td>${escapeHTML(m.cantidad)}</td><td>${escapeHTML(m.motivo||'')}</td></tr>`).join('');
       } catch {}
@@ -320,7 +428,7 @@
         if (!idSel){ alert('Selecciona un producto'); return; }
         const fd = { id_producto: idSel, tipo: document.getElementById('movTipo').value, cantidad: parseInt(document.getElementById('movCant').value,10)||0, motivo: document.getElementById('movMotivo').value };
         try {
-          const r = await fetch(API.movs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(fd)});
+          const r = await apiFetch(API.movs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(fd)});
           const data = await r.json();
           if(!data.success) throw new Error(data.error||'Error');
           alert('Movimiento registrado'); location.reload();
@@ -410,7 +518,7 @@
         const term = (q||'').trim();
         const url = term ? (API.proveedor + '?buscar=' + encodeURIComponent(term)) : (API.proveedor + '?listar=1');
         try{
-          const r = await fetch(url);
+          const r = await apiFetch(url);
           const data = await r.json();
           const lista = Array.isArray(data.proveedores) ? data.proveedores : (Array.isArray(data.data) ? data.data : []);
           renderProveedoresInv(lista);
@@ -476,7 +584,7 @@
         if (h) qs.set('fecha_hasta', h + ' 23:59:59');
         qs.set('limit','50');
         try{
-          const r = await fetch(API.pedidos + '?' + qs.toString());
+          const r = await apiFetch(API.pedidos + '?' + qs.toString());
           const data = await r.json();
           renderPedidos(data.pedidos || data.data || []);
         } catch {
@@ -498,7 +606,7 @@
         if (btn.dataset.action === 'ver'){
           // Carga y muestra el modal de ver pedido
           try {
-            const r = await fetch(API.pedidos + '?id=' + encodeURIComponent(id));
+            const r = await apiFetch(API.pedidos + '?id=' + encodeURIComponent(id));
             const data = await r.json();
             const p = data.pedido || null;
             if (!p) return alert('No se encontró el pedido');
@@ -567,7 +675,7 @@
         } else if (btn.dataset.action === 'recibir'){
           if (!confirm('Marcar como recibido el pedido ' + id + '?')) return;
           try {
-            const r = await fetch(API.pedidos + '?recibir=1&id=' + encodeURIComponent(id), { method:'POST' });
+            const r = await apiFetch(API.pedidos + '?recibir=1&id=' + encodeURIComponent(id), { method:'POST' });
             const data = await r.json();
             if (!data.success) return alert(data.error || 'Error');
             listarPedidos();
@@ -578,7 +686,7 @@
             const body = new URLSearchParams();
             body.set('id', String(id));
             body.set('estado', 'cancelado');
-            const r = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+            const r = await apiFetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
             const data = await r.json();
             if (!data.success) return alert(data.error || 'Error');
             listarPedidos();
@@ -606,13 +714,13 @@
         try{
           // Registrar movimientos uno por uno (simple y seguro)
           for (const mv of movimientos){
-            const r = await fetch(API.movs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mv)});
+            const r = await apiFetch(API.movs, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mv)});
             const data = await r.json();
             if (!data.success) throw new Error(data.error||'Error al registrar movimiento');
           }
           // Refrescar datos del pedido y auto-marcar como recibido si ya está completo
           try {
-            const r2 = await fetch(API.pedidos + '?id=' + encodeURIComponent(id));
+            const r2 = await apiFetch(API.pedidos + '?id=' + encodeURIComponent(id));
             const data2 = await r2.json();
             const p2 = data2.pedido || null;
             if (p2 && (p2.completo === true || p2.completo === 1 || p2.completo === '1') && String(p2.estado||'').toLowerCase()==='pendiente'){
@@ -620,7 +728,7 @@
               const body = new URLSearchParams();
               body.set('id', String(id));
               body.set('estado', 'recibido');
-              const r3 = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+              const r3 = await apiFetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
               const d3 = await r3.json();
               if (d3 && d3.success){
                 alert('Recepción parcial registrada y pedido marcado como recibido');
@@ -641,7 +749,7 @@
           const body = new URLSearchParams();
           body.set('id', String(id));
           body.set('estado', 'recibido');
-          const r = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+          const r = await apiFetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
           const data = await r.json();
           if (!data.success) return alert(data.error || 'No se pudo marcar como recibido');
           alert('Pedido marcado como recibido');
@@ -654,7 +762,7 @@
         if (!id) return;
         if (!confirm('Recibir por completo el pedido ' + id + '?')) return;
         try {
-          const r = await fetch(API.pedidos + '?recibir=1&id=' + encodeURIComponent(id), { method:'POST' });
+          const r = await apiFetch(API.pedidos + '?recibir=1&id=' + encodeURIComponent(id), { method:'POST' });
           const data = await r.json();
           if (!data.success) return alert(data.error || 'Error');
           bootstrap.Modal.getInstance(document.getElementById('modalVerPedido'))?.hide();
@@ -669,7 +777,7 @@
           const body = new URLSearchParams();
           body.set('id', String(id));
           body.set('estado', 'cancelado');
-          const r = await fetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
+          const r = await apiFetch(API.pedidos, { method:'PUT', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: body.toString() });
           const data = await r.json();
           if (!data.success) return alert(data.error || 'Error');
           bootstrap.Modal.getInstance(document.getElementById('modalVerPedido'))?.hide();
@@ -750,7 +858,7 @@
         const q = (term||'').trim();
         const url = q ? (API.proveedor + '?buscar=' + encodeURIComponent(q)) : (API.proveedor + '?listar=1');
         try{
-          const r = await fetch(url);
+          const r = await apiFetch(url);
           const data = await r.json();
           const lista = Array.isArray(data.proveedores) ? data.proveedores : (Array.isArray(data.data) ? data.data : []);
           renderProvSug(lista);
@@ -786,7 +894,7 @@
         if (!t) { renderProdSug([]); return; }
         const url = isFinite(Number(t)) ? (API.producto + '?id=' + encodeURIComponent(t)) : (API.producto + '?buscar=' + encodeURIComponent(t));
         try{
-          const r = await fetch(url);
+          const r = await apiFetch(url);
           const data = await r.json();
           let lista = [];
           if (r.ok){
@@ -818,7 +926,7 @@
           detalle: detalleItems.map(x=> ({ id_producto: parseInt(x.id_producto,10)||0, cantidad: parseInt(x.cantidad,10)||1, precio_unitario: parseFloat(x.precio_unitario)||0 }))
         };
         try{
-          const r = await fetch(API.pedidos, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+          const r = await apiFetch(API.pedidos, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           const data = await r.json();
           if (!data.success) throw new Error(data.error||'No se pudo guardar');
           modalNuevoInst?.hide();

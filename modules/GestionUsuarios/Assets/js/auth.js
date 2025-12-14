@@ -97,7 +97,8 @@ function loginUsuario() {
         mostrarSpinner('btnLogin', false);
         
         if (data.codigo === 200) {
-            // Guardar token
+            // Guardar token (usar 'authToken' para compatibilidad con otros módulos)
+            localStorage.setItem('authToken', data.datos.token);
             localStorage.setItem('token', data.datos.token);
             localStorage.setItem('usuario_id', data.datos.usuario_id);
             localStorage.setItem('usuario_email', data.datos.email);

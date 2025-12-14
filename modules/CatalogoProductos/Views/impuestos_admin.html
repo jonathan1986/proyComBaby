@@ -9,28 +9,27 @@
     body { padding: 16px; }
     .table-fixed thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
     .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    #accessDenied { display: none; }
   </style>
   </head>
 <body>
-  <div class="container-fluid">
+  <!-- Mensaje de acceso restringido -->
+  <div id="accessDenied" class="container mt-5">
+    <div class="alert alert-danger text-center">
+      <h4>⚠️ Acceso Restringido</h4>
+      <p>No tienes permisos para acceder a esta página.</p>
+      <p>Roles requeridos: <strong>ADMINISTRADOR</strong> o <strong>GESTOR_CONTENIDOS</strong></p>
+      <a href="../../GestionUsuarios/Views/login.html" class="btn btn-primary mt-3">Ir a Login</a>
+    </div>
+  </div>
+
+  <div class="container-fluid" id="mainContent">
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
       <h1 class="h4 m-0">Administración de Impuestos</h1>
       <div class="d-flex gap-2">
+        <span id="userInfo" class="text-muted small"></span>
         <a href="catalogo_productos.html" class="btn btn-outline-secondary btn-sm">Volver al catálogo</a>
-      </div>
-    </div>
-
-    <div class="card mb-3">
-      <div class="card-body">
-        <form id="frmToken" class="row g-2 align-items-end">
-          <div class="col-12 col-sm-6 col-md-3">
-            <label class="form-label small">Token mantenimiento</label>
-            <input type="password" class="form-control form-control-sm" id="token" placeholder="X-Maint-Token" />
-          </div>
-          <div class="col-12 col-sm-6 col-md-3">
-            <button class="btn btn-primary btn-sm" type="button" id="btnLoadAll">Cargar impuestos</button>
-          </div>
-        </form>
+        <button class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar Sesión</button>
       </div>
     </div>
 
@@ -173,50 +172,133 @@
   <script>
     function escapeHTML(s){return (s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
+    // ==================== AUTENTICACIÓN Y AUTORIZACIÓN ====================
+    
+    const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'GESTOR_CONTENIDOS'];
+    let currentUser = null;
+    let authToken = null;
+
+    // Verificar autenticación al cargar la página
+    (async function verificarAcceso() {
+      try {
+        // Obtener token de localStorage
+        authToken = localStorage.getItem('authToken');
+        
+        if (!authToken) {
+          throw new Error('No hay sesión activa');
+        }
+
+        // Verificar token y obtener datos del usuario
+        const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Token inválido o expirado');
+        }
+
+        const data = await response.json();
+        
+        // El API retorna datos en data.datos.usuario
+        currentUser = data.datos ? data.datos.usuario : data.usuario;
+
+        // Verificar que el usuario esté activo
+        if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
+          throw new Error('Usuario no está activo');
+        }
+
+        // Verificar rol autorizado
+        const userRoles = currentUser.roles ? currentUser.roles.split(',').map(r => r.trim()) : [];
+        const tieneAcceso = userRoles.some(rol => ROLES_PERMITIDOS.includes(rol));
+
+        if (!tieneAcceso) {
+          throw new Error('Rol no autorizado');
+        }
+
+        // Usuario autorizado - mostrar contenido
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('accessDenied').style.display = 'none';
+        document.getElementById('userInfo').textContent = `${currentUser.nombre_completo} (${userRoles.join(', ')})`;
+        
+        // Cargar impuestos automáticamente
+        await loadImpuestos();
+
+      } catch (error) {
+        console.error('Error de autenticación:', error);
+        // Acceso denegado - mostrar mensaje
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('accessDenied').style.display = 'block';
+        
+        // Redirigir a login después de 3 segundos
+        setTimeout(() => {
+          localStorage.removeItem('authToken');
+          window.location.href = '../../GestionUsuarios/Views/login.html';
+        }, 3000);
+      }
+    })();
+
+    // Cerrar sesión
+    document.getElementById('btnLogout')?.addEventListener('click', () => {
+      localStorage.removeItem('authToken');
+      window.location.href = '../../GestionUsuarios/Views/login.html';
+    });
+
+    // ==================== CONFIGURACIÓN DE API ====================
+
     (function initBase(){
       const p = location.pathname.replace(/\\/g,'/');
       const marker = '/modules/CatalogoProductos/Views/';
       const idx = p.indexOf(marker);
       window.CATALOGO_BASE = idx!==-1 ? p.substring(0, idx+1)+'modules/CatalogoProductos/' : '/modules/CatalogoProductos/';
     })();
+    
     const API = {
       impuestos: window.CATALOGO_BASE + 'Controllers/impuestos_api.php',
       prodImp: window.CATALOGO_BASE + 'Controllers/productos_impuestos_api.php',
       producto: window.CATALOGO_BASE + 'Controllers/producto_api.php'
     };
 
-    function maintHeaders(){
-      const t = document.getElementById('token').value.trim();
-      return t ? { 'X-Maint-Token': t, 'Content-Type': 'application/json' } : { 'Content-Type':'application/json' };
+    // Headers con autenticación Bearer
+    function authHeaders(){
+      return {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      };
     }
 
-    // Cargar token desde localStorage al inicio
-    (function initToken(){
-      const savedToken = localStorage.getItem('maintToken') || '';
-      const tokenInput = document.getElementById('token');
-      if (tokenInput && savedToken) {
-        tokenInput.value = savedToken;
-      }
-      // Guardar token cuando cambie
-      tokenInput?.addEventListener('change', ()=>{
-        const val = (tokenInput.value || '').trim();
-        localStorage.setItem('maintToken', val);
-      });
-    })();
-
     async function apiGet(url){
-      const r = await fetch(url, { headers: maintHeaders() });
+      const r = await fetch(url, { headers: authHeaders() });
       const txt = await r.text();
       let j; try { j = JSON.parse(txt); } catch { j = null; }
-      if (!r.ok) throw new Error(j?.error || txt || ('HTTP '+r.status));
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) {
+          alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+          localStorage.removeItem('authToken');
+          window.location.href = '../../GestionUsuarios/Views/login.html';
+          throw new Error('No autorizado');
+        }
+        throw new Error(j?.error || txt || ('HTTP '+r.status));
+      }
       if (j?.success === false) throw new Error(j.error || 'Error');
       return j ?? {};
     }
+    
     async function apiSend(url, method, body){
-      const r = await fetch(url, { method, headers: maintHeaders(), body: JSON.stringify(body) });
+      const r = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
       const txt = await r.text();
       let j; try { j = JSON.parse(txt); } catch { j = null; }
-      if (!r.ok) throw new Error(j?.error || txt || ('HTTP '+r.status));
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) {
+          alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+          localStorage.removeItem('authToken');
+          window.location.href = '../../GestionUsuarios/Views/login.html';
+          throw new Error('No autorizado');
+        }
+        throw new Error(j?.error || txt || ('HTTP '+r.status));
+      }
       if (j?.success === false) throw new Error(j.error || 'Error');
       return j ?? {};
     }
@@ -253,7 +335,6 @@
       }catch(e){ alert('Error listando impuestos: '+e.message); }
     }
 
-    document.getElementById('btnLoadAll').addEventListener('click', loadImpuestos);
     // ===== Asignación masiva =====
     async function cargarNoAsignados(){
       const idImp = document.getElementById('pi_sel_impuesto_bulk').value || document.getElementById('pi_sel_impuesto').value;
@@ -331,8 +412,10 @@
       if(btnDel){
         if(!confirm('¿Eliminar impuesto?')) return;
         const id = btnDel.getAttribute('data-del');
-        try{ const u = new URL(API.impuestos, location.origin); u.searchParams.set('id', id);
-          await fetch(u, { method:'DELETE', headers: maintHeaders() }).then(r=>r.json());
+        try{ 
+          const u = new URL(API.impuestos, location.origin); 
+          u.searchParams.set('id', id);
+          await fetch(u, { method:'DELETE', headers: authHeaders() }).then(r=>r.json());
           await loadImpuestos();
         }catch(err){ alert('Error eliminando: '+err.message); }
         return;
@@ -374,7 +457,13 @@
       const i = document.getElementById('pi_sel_impuesto').value;
       if(!p || !i) { alert('Completa producto e impuesto para quitar'); return; }
       if(!confirm('¿Quitar impuesto del producto?')) return;
-      try{ const u = new URL(API.prodImp, location.origin); u.searchParams.set('id_producto', p); u.searchParams.set('id_impuesto', i); await fetch(u, { method:'DELETE', headers: maintHeaders() }).then(r=>r.json()); await verAsignaciones(); }
+      try{ 
+        const u = new URL(API.prodImp, location.origin); 
+        u.searchParams.set('id_producto', p); 
+        u.searchParams.set('id_impuesto', i); 
+        await fetch(u, { method:'DELETE', headers: authHeaders() }).then(r=>r.json()); 
+        await verAsignaciones(); 
+      }
       catch(err){ alert('Error quitando: '+err.message); }
     });
 

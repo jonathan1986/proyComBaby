@@ -14,10 +14,22 @@
 	</style>
 </head>
 <body>
-	<div class="container my-4">
+	<!-- Mensaje de acceso restringido -->
+	<div id="accessDenied" class="container mt-5" style="display: none;">
+		<div class="alert alert-danger text-center">
+			<h4>⚠️ Acceso Restringido</h4>
+			<p>No tienes permisos para acceder a esta página.</p>
+			<p>Roles requeridos: <strong>ADMINISTRADOR</strong> o <strong>GESTOR_CONTENIDOS</strong></p>
+			<a href="../../GestionUsuarios/Views/login.html" class="btn btn-primary mt-3">Ir a Login</a>
+		</div>
+	</div>
+
+	<div class="container my-4" id="mainContent">
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 m-0">Producto - Gestión</h1>
 			<div class="d-flex align-items-center gap-2">
+				<span id="userInfo" class="text-muted small me-2"></span>
+				<button class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar Sesión</button>
 				<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBuscarProducto">Buscar producto</button>
 				<button type="button" class="btn btn-success btn-sm d-flex align-items-center gap-1" id="btnNuevoProducto" title="Añadir nuevo producto">
 					<span class="bi bi-plus-lg" aria-hidden="true"></span> Añadir
@@ -170,13 +182,6 @@
 					<h2 class="h5 m-0">Impuestos del producto</h2>
 					<button class="btn btn-sm btn-outline-primary" id="btnRefrescarImpuestos">Refrescar</button>
 				</div>
-                <div class="row g-3 mt-2">
-                    <div class="col-md-6">
-                        <label for="pg_imp_token" class="form-label">Token de mantenimiento</label>
-                        <input type="password" id="pg_imp_token" class="form-control" placeholder="X-Maint-Token" />
-                        <div class="form-text">Requerido para asignar o quitar impuestos.</div>
-                    </div>
-                </div>
 				<div class="row g-3 mt-1">
 					<div class="col-md-8">
 						<label for="pg_imp_sel" class="form-label">Seleccionar impuesto activo</label>
@@ -309,6 +314,78 @@
 	<script src="https://cdn.datatables.net/v/bs5/dt-2.0.7/datatables.min.js"></script>
 
 		<script>
+		// ==================== AUTENTICACIÓN Y AUTORIZACIÓN ====================
+		
+		const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'GESTOR_CONTENIDOS'];
+		let currentUser = null;
+		let authToken = null;
+
+		// Verificar autenticación al cargar la página
+		(async function verificarAcceso() {
+			try {
+				// Obtener token de localStorage
+				authToken = localStorage.getItem('authToken');
+				
+				if (!authToken) {
+					throw new Error('No hay sesión activa');
+				}
+
+				// Verificar token y obtener datos del usuario
+				const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
+					headers: {
+						'Authorization': `Bearer ${authToken}`,
+						'Content-Type': 'application/json'
+					}
+				});
+
+				if (!response.ok) {
+					throw new Error('Token inválido o expirado');
+				}
+
+				const data = await response.json();
+				// El API retorna datos en data.datos.usuario
+				currentUser = data.datos ? data.datos.usuario : data.usuario;
+
+				// Verificar que el usuario esté activo
+				if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
+					throw new Error('Usuario no está activo');
+				}
+
+				// Verificar rol autorizado
+				const userRoles = currentUser.roles ? currentUser.roles.split(',').map(r => r.trim()) : [];
+				const tieneAcceso = userRoles.some(rol => ROLES_PERMITIDOS.includes(rol));
+
+				if (!tieneAcceso) {
+					throw new Error('Rol no autorizado');
+				}
+
+				// Usuario autorizado - mostrar contenido
+				document.getElementById('mainContent').style.display = 'block';
+				document.getElementById('accessDenied').style.display = 'none';
+				document.getElementById('userInfo').textContent = `${currentUser.nombre_completo} (${userRoles.join(', ')})`;
+
+			} catch (error) {
+				console.error('Error de autenticación:', error);
+				// Acceso denegado - mostrar mensaje
+				document.getElementById('mainContent').style.display = 'none';
+				document.getElementById('accessDenied').style.display = 'block';
+				
+				// Redirigir a login después de 3 segundos
+				setTimeout(() => {
+					localStorage.removeItem('authToken');
+					window.location.href = '../../GestionUsuarios/Views/login.html';
+				}, 3000);
+			}
+		})();
+
+		// Cerrar sesión
+		document.getElementById('btnLogout')?.addEventListener('click', () => {
+			localStorage.removeItem('authToken');
+			window.location.href = '../../GestionUsuarios/Views/login.html';
+		});
+
+		// ==================== UTILIDADES ====================
+		
 		// Utilidades de seguridad (OWASP): escapar HTML antes de inyectar
 		function escapeHTML(str) {
 			if (str === null || str === undefined) return '';
@@ -742,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				async function loadImpuestosActivos(){
 					// Intentar usar ?listar=1&activo=1; si el backend no lo filtra, filtramos aquí
-					const d = await apiFetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`, { method: 'GET' }, maintToken);
+					const d = await apiFetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`, { method: 'GET' });
 					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
 					const activos = lista.filter(i => (i.activo===1||i.activo==='1'||i.activo===true));
 					return activos;
@@ -750,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				async function loadImpuestosAsignados(){
 					if (!state.productoId) return [];
-					const d = await apiFetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`, { method: 'GET' }, maintToken);
+					const d = await apiFetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`, { method: 'GET' });
 					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
 					return lista;
 				}
@@ -808,23 +885,12 @@ document.addEventListener('DOMContentLoaded', () => {
 				selImp?.addEventListener('change', ()=>{ btnAddImp.disabled = !selImp.value; });
 				document.getElementById('btnRefrescarImpuestos')?.addEventListener('click', ()=>{ if(state.productoId) cargarUIImpuestos(); });
 
-                // Token mantenimiento (persistir en localStorage)
-                const tokenInput = document.getElementById('pg_imp_token');
-                let maintToken = localStorage.getItem('maintToken') || '';
-                if (tokenInput) tokenInput.value = maintToken;
-                tokenInput?.addEventListener('change', ()=>{
-                    maintToken = (tokenInput.value || '').trim();
-                    localStorage.setItem('maintToken', maintToken);
-                    if (state.productoId) cargarUIImpuestos();
-                });
-
 				btnAddImp?.addEventListener('click', async ()=>{
 					if (!state.productoId) return alert('Primero guarda el producto');
 					const idImp = selImp.value;
 					if (!idImp) return;
-                    if (!maintToken) return alert('Ingresa el token de mantenimiento');
 					try{
-						const data = await apiFetch(ENDPOINTS.prodImpuestos, { method:'POST', body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) }, maintToken);
+						const data = await apiFetch(ENDPOINTS.prodImpuestos, { method:'POST', body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) });
 						cargarUIImpuestos();
 					} catch(err){
 						alert('Error al asignar: ' + err.message);
@@ -837,9 +903,8 @@ document.addEventListener('DOMContentLoaded', () => {
 					if (!state.productoId) return;
 					const idImp = String(btn.getAttribute('data-id'));
 					try{
-						if (!maintToken) return alert('Ingresa el token de mantenimiento');
 						const url = `${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}&id_impuesto=${encodeURIComponent(idImp)}`;
-						const data = await apiFetch(url, { method:'DELETE' }, maintToken);
+						const data = await apiFetch(url, { method:'DELETE' });
 						cargarUIImpuestos();
 					} catch(err){
 						alert('Error al quitar: ' + err.message);
@@ -1147,36 +1212,23 @@ document.addEventListener('DOMContentLoaded', () => {
 			} catch {}
 		}
 
-async function apiFetch(url, opts={}, token) {
-  const headers = {'Content-Type':'application/json'};
-  if (token) headers['X-Maint-Token'] = token;
+async function apiFetch(url, opts={}) {
+  const headers = {
+    'Content-Type':'application/json',
+    'Authorization': `Bearer ${authToken}`
+  };
   const res = await fetch(url, {...opts, headers});
+  if (res.status === 401 || res.status === 403) {
+    alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+    localStorage.removeItem('authToken');
+    window.location.href = '../../GestionUsuarios/Views/login.html';
+    throw new Error('No autorizado');
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
-async function cargarCatalogoImpuestos(token){
-  return apiFetch('../../Controllers/impuestos_api.php', {method:'GET'}, token);
-}
 
-async function cargarImpuestosProducto(idProducto, token){
-  return apiFetch(`../../Controllers/productos_impuestos_api.php?id_producto=${idProducto}`, {method:'GET'}, token);
-}
-
-async function asignarImpuestoProducto(idProducto, idImpuesto, token){
-  return apiFetch('../../Controllers/productos_impuestos_api.php', {
-    method:'POST',
-    body: JSON.stringify({id_producto:idProducto, id_impuesto:idImpuesto})
-  }, token);
-}
-
-async function quitarImpuestoProducto(idProducto, idImpuesto, token){
-  // También puedes usar query ?token= si prefieres:
-  // const url = `../../Controllers/productos_impuestos_api.php?id_producto=${idProducto}&id_impuesto=${idImpuesto}&token=${encodeURIComponent(token)}`;
-  return apiFetch(`../../Controllers/productos_impuestos_api.php?id_producto=${idProducto}&id_impuesto=${idImpuesto}`, {
-    method:'DELETE'
-  }, token);
-}
 	</script>
 </body>
 </html>
