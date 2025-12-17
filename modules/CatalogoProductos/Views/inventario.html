@@ -5,11 +5,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inventario</title>
+  <link rel="icon" href="data:,">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.4/dist/style.css">
+  <link rel="stylesheet" href="../../Shared/Assets/css/layout.css">
   <style>.tab-pane{padding-top:1rem}</style>
 </head>
 <body>
+  <!-- Incluir sidebar y topbar -->
+  <div id="layoutContainer"></div>
+
   <!-- Mensaje de acceso restringido -->
   <div id="accessDenied" class="container mt-5" style="display: none;">
     <div class="alert alert-danger text-center">
@@ -20,13 +25,9 @@
     </div>
   </div>
 
-  <div class="container my-4" id="mainContent">
+  <div class="container my-4" id="mainContent" style="display: none;">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h1 class="h3 m-0">Inventario</h1>
-      <div class="d-flex align-items-center gap-2">
-        <span id="userInfo" class="text-muted small me-2"></span>
-        <button class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar Sesión</button>
-      </div>
     </div>
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#dash" type="button">Dashboard</button></li>
@@ -245,95 +246,11 @@
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/simple-datatables@9.0.4/dist/umd/simple-datatables.min.js"></script>
   <script>
-    // ==================== AUTENTICACIÓN Y AUTORIZACIÓN ====================
-    
+    // La autenticación ahora se maneja en layout.js
     const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'GESTOR_CONTENIDOS'];
-    let currentUser = null;
-    let authToken = null;
-
-    // Verificar autenticación al cargar la página
-    (async function verificarAcceso() {
-      try {
-        // Obtener token de localStorage
-        authToken = localStorage.getItem('authToken');
-        
-        if (!authToken) {
-          throw new Error('No hay sesión activa');
-        }
-
-        // Verificar token y obtener datos del usuario
-        const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Token inválido o expirado');
-        }
-
-        const data = await response.json();
-        // El API retorna datos en data.datos.usuario
-        currentUser = data.datos ? data.datos.usuario : data.usuario;
-
-        // Verificar que el usuario esté activo
-        if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
-          throw new Error('Usuario no está activo');
-        }
-
-        // Verificar rol autorizado
-        const userRoles = currentUser.roles ? currentUser.roles.split(',').map(r => r.trim()) : [];
-        const tieneAcceso = userRoles.some(rol => ROLES_PERMITIDOS.includes(rol));
-
-        if (!tieneAcceso) {
-          throw new Error('Rol no autorizado');
-        }
-
-        // Usuario autorizado - mostrar contenido
-        document.getElementById('mainContent').style.display = 'block';
-        document.getElementById('accessDenied').style.display = 'none';
-        document.getElementById('userInfo').textContent = `${currentUser.nombre_completo} (${userRoles.join(', ')})`;
-
-      } catch (error) {
-        console.error('Error de autenticación:', error);
-        // Acceso denegado - mostrar mensaje
-        document.getElementById('mainContent').style.display = 'none';
-        document.getElementById('accessDenied').style.display = 'block';
-        
-        // Redirigir a login después de 3 segundos
-        setTimeout(() => {
-          localStorage.removeItem('authToken');
-          window.location.href = '../../GestionUsuarios/Views/login.html';
-        }, 3000);
-      }
-    })();
-
-    // Cerrar sesión
-    document.getElementById('btnLogout')?.addEventListener('click', () => {
-      localStorage.removeItem('authToken');
-      window.location.href = '../../GestionUsuarios/Views/login.html';
-    });
-
-    // Helper para fetch con autenticación
-    async function apiFetch(url, options = {}) {
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-        ...options.headers
-      };
-      
-      const response = await fetch(url, { ...options, headers });
-      
-      if (response.status === 401 || response.status === 403) {
-        alert('Sesión expirada o sin permisos. Redirigiendo a login...');
-        localStorage.removeItem('authToken');
-        window.location.href = '../../GestionUsuarios/Views/login.html';
-        throw new Error('No autorizado');
-      }
-      
-      return response;
-    }
+    let authToken = localStorage.getItem('authToken');
+    
+    // apiFetch está disponible globalmente desde layout.js
 
     // ==================== CONFIGURACIÓN ====================
 
@@ -935,6 +852,17 @@
         } catch(e){ alert('Error: ' + (e?.message||'desconocido')); }
       });
     });
+  </script>
+
+  <!-- Layout scripts -->
+  <script src="../../Shared/Assets/js/layout.js"></script>
+  <script>
+      fetch('../../Shared/Views/sidebar.html')
+          .then(r => r.text())
+          .then(html => {
+              document.getElementById('layoutContainer').innerHTML = html;
+              initLayout();
+          });
   </script>
 </body>
 </html>

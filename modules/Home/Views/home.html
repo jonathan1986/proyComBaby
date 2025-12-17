@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Principal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #f5f6fa; }
+    .module-card { transition: transform .15s ease, box-shadow .15s ease; border: none; }
+    .module-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,.08); }
+    .module-card .icon { font-size: 2.25rem; line-height: 1; color: #198754; }
+  </style>
+</head>
+<body>
+  <!-- Acceso restringido -->
+  <div id="accessDenied" class="container mt-5" style="display:none;">
+    <div class="alert alert-danger text-center">
+      <h4 class="mb-2">⚠️ Acceso Restringido</h4>
+      <p class="mb-0">Tu sesión no es válida o no cuentas con los permisos necesarios. Serás redirigido al inicio de sesión.</p>
+    </div>
+  </div>
+
+  <!-- Contenido principal -->
+  <div id="mainContent" class="container py-4" style="display:none;">
+    <header class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4 gap-3">
+      <div>
+        <p class="text-muted mb-1 small">Bienvenido</p>
+        <h1 class="h3 mb-0" id="userName"></h1>
+        <small class="text-muted" id="userRoles"></small>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar sesión</button>
+    </header>
+
+    <section>
+      <h2 class="h5 mb-3">Módulos disponibles</h2>
+      <div class="row" id="modulesGrid"></div>
+      <div id="noModules" class="alert alert-warning text-center" style="display:none;">
+        No tienes módulos asignados para tu rol.
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ==================== CONFIGURACIÓN DE MENÚ ====================
+    const MENU_DEFINITIONS = {
+      productos: {
+        titulo: 'Gestión de Productos',
+        descripcion: 'Crear, editar y administrar el catálogo completo.',
+        icono: '🛒',
+        url: '../../CatalogoProductos/Views/producto_gestion.html'
+      },
+      categorias: {
+        titulo: 'Categorías',
+        descripcion: 'Organiza el catálogo por familias y jerarquías.',
+        icono: '🗂️',
+        url: '../../CatalogoProductos/Views/categoria_crud.html'
+      },
+      impuestos: {
+        titulo: 'Impuestos',
+        descripcion: 'Define tasas e impuestos aplicables.',
+        icono: '💸',
+        url: '../../CatalogoProductos/Views/impuestos_admin.html'
+      },
+      proveedores: {
+        titulo: 'Proveedores',
+        descripcion: 'Administra los socios comerciales y sus datos.',
+        icono: '🤝',
+        url: '../../CatalogoProductos/Views/proveedor_crud.html'
+      },
+      inventario: {
+        titulo: 'Inventario',
+        descripcion: 'Consulta stocks, movimientos y alertas.',
+        icono: '📦',
+        url: '../../CatalogoProductos/Views/inventario.html'
+      },
+      pedidos: {
+        titulo: 'Pedidos',
+        descripcion: 'Seguimiento y gestión de pedidos recibidos.',
+        icono: '🧾',
+        url: '../../GestionUsuarios/Views/pedidos.html'
+      },
+      perfil: {
+        titulo: 'Mi Perfil',
+        descripcion: 'Actualiza tu información personal y credenciales.',
+        icono: '👤',
+        url: '../../GestionUsuarios/Views/perfil.html'
+      }
+    };
+
+    const ROLE_ACCESS = {
+      ADMINISTRADOR: ['productos','categorias','impuestos','proveedores','inventario','pedidos','perfil'],
+      GESTOR_CONTENIDOS: ['productos','categorias','impuestos','proveedores'],
+      VENDEDOR: ['productos','categorias','inventario','pedidos'],
+      CLIENTE: ['pedidos','perfil']
+    };
+
+    let authToken = null;
+    let currentUser = null;
+
+    // ==================== AUTENTICACIÓN ====================
+    (async function verificarAcceso(){
+      try {
+        authToken = localStorage.getItem('authToken');
+        if (!authToken) throw new Error('No hay sesión activa');
+
+        const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) throw new Error('Token inválido o expirado');
+
+        const data = await response.json();
+        currentUser = data.datos ? data.datos.usuario : data.usuario;
+
+        if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
+          throw new Error('Usuario no está activo');
+        }
+
+        mostrarContenido();
+      } catch (error) {
+        console.error('Error de autenticación:', error);
+        mostrarAccesoDenegado();
+      }
+    })();
+
+    // ==================== UI ====================
+    function mostrarContenido(){
+      const roles = (currentUser.roles || '')
+        .split(',')
+        .map(r => r.trim())
+        .filter(Boolean);
+
+      document.getElementById('userName').textContent = currentUser.nombre_completo || currentUser.email;
+      document.getElementById('userRoles').textContent = roles.length ? roles.join(', ') : 'Sin roles asignados';
+
+      construirMenu(roles);
+      document.getElementById('accessDenied').style.display = 'none';
+      document.getElementById('mainContent').style.display = 'block';
+    }
+
+    function mostrarAccesoDenegado(){
+      document.getElementById('mainContent').style.display = 'none';
+      document.getElementById('accessDenied').style.display = 'block';
+      setTimeout(() => {
+        localStorage.removeItem('authToken');
+        window.location.href = '../../GestionUsuarios/Views/login.html';
+      }, 3000);
+    }
+
+    function construirMenu(roles){
+      const modulesGrid = document.getElementById('modulesGrid');
+      modulesGrid.innerHTML = '';
+
+      const accesos = new Set();
+      roles.forEach(rol => {
+        const lista = ROLE_ACCESS[rol];
+        if (Array.isArray(lista)) lista.forEach(item => accesos.add(item));
+      });
+
+      if (!accesos.size) {
+        document.getElementById('noModules').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('noModules').style.display = 'none';
+
+      [...accesos]
+        .map(key => MENU_DEFINITIONS[key])
+        .filter(Boolean)
+        .forEach(mod => {
+          const col = document.createElement('div');
+          col.className = 'col-12 col-md-6 col-xl-4 mb-3';
+          col.innerHTML = `
+            <div class="card module-card h-100">
+              <div class="card-body d-flex flex-column">
+                <div class="icon mb-3" aria-hidden="true">${mod.icono}</div>
+                <h5 class="card-title">${mod.titulo}</h5>
+                <p class="text-muted flex-grow-1">${mod.descripcion}</p>
+                <a href="${mod.url}" class="btn btn-sm btn-success mt-3">Ingresar</a>
+              </div>
+            </div>`;
+          modulesGrid.appendChild(col);
+        });
+    }
+
+    // ==================== SESIÓN ====================
+    document.getElementById('btnLogout')?.addEventListener('click', () => {
+      localStorage.removeItem('authToken');
+      window.location.href = '../../GestionUsuarios/Views/login.html';
+    });
+  </script>
+</body>
+</html>

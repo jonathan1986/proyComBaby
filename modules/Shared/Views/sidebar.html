@@ -1,0 +1,54 @@
+<!-- Topbar: visible en móvil y escritorio -->
+<nav id="appTopbar" class="navbar navbar-light bg-white border-bottom sticky-top">
+  <div class="container-fluid">
+    <button class="btn btn-outline-secondary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appOffcanvas" aria-controls="appOffcanvas">
+      ☰
+    </button>
+    <button class="btn btn-outline-secondary d-none d-lg-block sidebar-toggle" id="sidebarToggle">☰</button>
+    <span class="navbar-brand mb-0 h1" id="pageTitle">Panel de Control</span>
+  </div>
+</nav>
+
+<!-- Sidebar para escritorio (≥992px): fijo lateral -->
+<nav id="appSidebar" class="d-none d-lg-block">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="sidebar-brand">E-Commerce Admin</div>
+  </div>
+
+  <div id="sidebarUserInfo" class="mb-3">
+    <!-- Se llena dinámicamente con layout.js -->
+  </div>
+
+  <hr>
+
+  <ul class="nav flex-column" id="sidebarMenu">
+    <!-- Items dinámicos según rol -->
+  </ul>
+
+  <hr>
+
+  <button class="btn btn-outline-danger w-100" id="btnSidebarLogout">Cerrar sesión</button>
+</nav>
+
+<!-- Offcanvas para móvil/tablet (<992px) -->
+<div class="offcanvas offcanvas-start" tabindex="-1" id="appOffcanvas" aria-labelledby="offcanvasLabel">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="offcanvasLabel">E-Commerce Admin</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div id="offcanvasUserInfo" class="mb-3 small">
+      <!-- Se llena dinámicamente con layout.js -->
+    </div>
+
+    <hr>
+
+    <ul class="nav flex-column" id="offcanvasMenu">
+      <!-- Items dinámicos según rol -->
+    </ul>
+
+    <hr>
+
+    <button class="btn btn-outline-danger w-100" id="btnOffcanvasLogout">Cerrar sesión</button>
+  </div>
+</div>

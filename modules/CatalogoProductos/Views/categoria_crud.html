@@ -3,11 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <title>Gestión de Categorías</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="catalogo.css">
+    <link rel="stylesheet" href="../../Shared/Assets/css/layout.css">
 </head>
 <body>
+    <!-- Incluir sidebar y topbar -->
+    <div id="layoutContainer"></div>
+
     <!-- Mensaje de acceso denegado -->
     <div id="accessDenied" class="container mt-5" style="display: none;">
         <div class="alert alert-danger text-center">
@@ -21,8 +26,6 @@
     <div class="rounded shadow-sm d-flex align-items-center justify-content-between px-4 py-3 mb-4" style="background-color: rgb(232,232,232); color: #333;">
         <h1 class="mb-0" style="font-size:1.7rem;">Gestión de Categorías</h1>
         <div class="d-flex align-items-center gap-3">
-            <span id="userInfo" class="text-muted small"></span>
-            <button id="btnLogout" class="btn btn-outline-danger btn-sm">Cerrar Sesión</button>
             <button id="btnMostrarForm" type="button" class="btn btn-success fw-bold">
                 <span class="me-2">➕</span> Añadir
             </button>
@@ -92,81 +95,11 @@
     </div>
     </div><!-- End mainContent -->
     <script>
-    // ==================== AUTENTICACIÓN Y AUTORIZACIÓN ====================
-    
+    // La autenticación ahora se maneja en layout.js
     const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'GESTOR_CONTENIDOS'];
-    let currentUser = null;
-    let authToken = null;
-
-    (async function verificarAcceso() {
-      try {
-        authToken = localStorage.getItem('authToken');
-        if (!authToken) throw new Error('No hay sesión activa');
-        
-        const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) throw new Error('Token inválido o expirado');
-        
-        const data = await response.json();
-        currentUser = data.datos ? data.datos.usuario : data.usuario;
-        
-        // Verificar usuario activo
-        if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
-          throw new Error('Usuario no está activo');
-        }
-        
-        // Verificar roles
-        const userRoles = currentUser.roles.split(',').map(r => r.trim());
-        const tieneAcceso = userRoles.some(rol => ROLES_PERMITIDOS.includes(rol));
-        
-        if (!tieneAcceso) throw new Error('Rol no autorizado');
-        
-        // Mostrar contenido
-        document.getElementById('mainContent').style.display = 'block';
-        document.getElementById('accessDenied').style.display = 'none';
-        document.getElementById('userInfo').textContent = `${currentUser.nombre_completo} (${userRoles.join(', ')})`;
-        
-      } catch (error) {
-        console.error('Error de autenticación:', error);
-        document.getElementById('mainContent').style.display = 'none';
-        document.getElementById('accessDenied').style.display = 'block';
-        
-        setTimeout(() => {
-          localStorage.removeItem('authToken');
-          window.location.href = '../../GestionUsuarios/Views/login.html';
-        }, 3000);
-      }
-    })();
-
-    // Cerrar sesión
-    document.getElementById('btnLogout')?.addEventListener('click', () => {
-      localStorage.removeItem('authToken');
-      window.location.href = '../../GestionUsuarios/Views/login.html';
-    });
-
-    // Helper para fetch con autenticación
-    async function apiFetch(url, options = {}) {
-      const headers = {
-        'Authorization': `Bearer ${authToken}`,
-        ...options.headers
-      };
-      
-      const response = await fetch(url, { ...options, headers });
-      
-      if (response.status === 401 || response.status === 403) {
-        alert('Sesión expirada o sin permisos. Redirigiendo a login...');
-        localStorage.removeItem('authToken');
-        window.location.href = '../../GestionUsuarios/Views/login.html';
-        throw new Error('No autorizado');
-      }
-      
-      return response;
-    }
+    let authToken = localStorage.getItem('authToken');
+    
+    // apiFetch está disponible globalmente desde layout.js
 
     // ==================== LÓGICA DEL MÓDULO ====================
     
@@ -376,7 +309,33 @@
             .catch(err => console.error('Error al eliminar categoría:', err));
         }
     }
-    cargarCategorias();
+    
+    // Cargar categorías después de que layout.js esté listo
+    window.addEventListener('load', function() {
+        // Esperar a que initLayout termine
+        setTimeout(() => {
+            if (typeof apiFetch !== 'undefined') {
+                cargarCategorias();
+            }
+        }, 500);
+    });
+    </script>
+
+    <!-- Scripts: Bootstrap + jQuery + DataTables -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+    <!-- Layout scripts -->
+    <script src="../../Shared/Assets/js/layout.js"></script>
+    <script>
+        fetch('../../Shared/Views/sidebar.html')
+            .then(r => r.text())
+            .then(html => {
+                document.getElementById('layoutContainer').innerHTML = html;
+                initLayout();
+            });
     </script>
 </body>
 </html>

@@ -4,9 +4,10 @@
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Producto - Gestión</title>
-	<!-- Requiere Bootstrap 5 y DataTables 2; si tu layout ya los incluye, puedes quitar estas líneas -->
+	<link rel="icon" href="data:,">
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 	<link href="https://cdn.datatables.net/v/bs5/dt-2.0.7/datatables.min.css" rel="stylesheet"/>
+	<link rel="stylesheet" href="../../Shared/Assets/css/layout.css">
 	<style>
 		.tab-pane { padding-top: 1rem; }
 		.is-invalid + .invalid-feedback { display: block; }
@@ -14,22 +15,22 @@
 	</style>
 </head>
 <body>
+	<!-- Incluir sidebar y topbar -->
+	<div id="layoutContainer"></div>
+
 	<!-- Mensaje de acceso restringido -->
-	<div id="accessDenied" class="container mt-5" style="display: none;">
+	<div id="accessDenied" class="container mt-5" style="display: none; margin-left: 260px;">
 		<div class="alert alert-danger text-center">
 			<h4>⚠️ Acceso Restringido</h4>
 			<p>No tienes permisos para acceder a esta página.</p>
 			<p>Roles requeridos: <strong>ADMINISTRADOR</strong> o <strong>GESTOR_CONTENIDOS</strong></p>
-			<a href="../../GestionUsuarios/Views/login.html" class="btn btn-primary mt-3">Ir a Login</a>
 		</div>
 	</div>
 
-	<div class="container my-4" id="mainContent">
+	<div id="mainContent" style="display: none;">
 		<div class="d-flex align-items-center justify-content-between mb-3">
 			<h1 class="h3 m-0">Producto - Gestión</h1>
 			<div class="d-flex align-items-center gap-2">
-				<span id="userInfo" class="text-muted small me-2"></span>
-				<button class="btn btn-outline-danger btn-sm" id="btnLogout">Cerrar Sesión</button>
 				<button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBuscarProducto">Buscar producto</button>
 				<button type="button" class="btn btn-success btn-sm d-flex align-items-center gap-1" id="btnNuevoProducto" title="Añadir nuevo producto">
 					<span class="bi bi-plus-lg" aria-hidden="true"></span> Añadir
@@ -308,81 +309,18 @@
 		</div>
 	</div>
 
-	<!-- Scripts: Bootstrap + DataTables + Lógica de la página -->
+	<!-- Scripts: Bootstrap + jQuery + DataTables + Lógica de la página -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
 	<script src="https://cdn.datatables.net/v/bs5/dt-2.0.7/datatables.min.js"></script>
 
 		<script>
 		// ==================== AUTENTICACIÓN Y AUTORIZACIÓN ====================
 		
+		// La autenticación ahora se maneja en layout.js
 		const ROLES_PERMITIDOS = ['ADMINISTRADOR', 'GESTOR_CONTENIDOS'];
-		let currentUser = null;
-		let authToken = null;
-
-		// Verificar autenticación al cargar la página
-		(async function verificarAcceso() {
-			try {
-				// Obtener token de localStorage
-				authToken = localStorage.getItem('authToken');
-				
-				if (!authToken) {
-					throw new Error('No hay sesión activa');
-				}
-
-				// Verificar token y obtener datos del usuario
-				const response = await fetch('/modules/GestionUsuarios/Api/index.php?action=perfil', {
-					headers: {
-						'Authorization': `Bearer ${authToken}`,
-						'Content-Type': 'application/json'
-					}
-				});
-
-				if (!response.ok) {
-					throw new Error('Token inválido o expirado');
-				}
-
-				const data = await response.json();
-				// El API retorna datos en data.datos.usuario
-				currentUser = data.datos ? data.datos.usuario : data.usuario;
-
-				// Verificar que el usuario esté activo
-				if (currentUser.activo !== 1 || currentUser.estado_id !== 1) {
-					throw new Error('Usuario no está activo');
-				}
-
-				// Verificar rol autorizado
-				const userRoles = currentUser.roles ? currentUser.roles.split(',').map(r => r.trim()) : [];
-				const tieneAcceso = userRoles.some(rol => ROLES_PERMITIDOS.includes(rol));
-
-				if (!tieneAcceso) {
-					throw new Error('Rol no autorizado');
-				}
-
-				// Usuario autorizado - mostrar contenido
-				document.getElementById('mainContent').style.display = 'block';
-				document.getElementById('accessDenied').style.display = 'none';
-				document.getElementById('userInfo').textContent = `${currentUser.nombre_completo} (${userRoles.join(', ')})`;
-
-			} catch (error) {
-				console.error('Error de autenticación:', error);
-				// Acceso denegado - mostrar mensaje
-				document.getElementById('mainContent').style.display = 'none';
-				document.getElementById('accessDenied').style.display = 'block';
-				
-				// Redirigir a login después de 3 segundos
-				setTimeout(() => {
-					localStorage.removeItem('authToken');
-					window.location.href = '../../GestionUsuarios/Views/login.html';
-				}, 3000);
-			}
-		})();
-
-		// Cerrar sesión
-		document.getElementById('btnLogout')?.addEventListener('click', () => {
-			localStorage.removeItem('authToken');
-			window.location.href = '../../GestionUsuarios/Views/login.html';
-		});
+		let authToken = localStorage.getItem('authToken');
 
 		// ==================== UTILIDADES ====================
 		
@@ -1228,7 +1166,19 @@ async function apiFetch(url, opts={}) {
   return res.json();
 }
 
+	</script>
 
+	<!-- Layout scripts -->
+	<script src="../../Shared/Assets/js/layout.js"></script>
+	<script>
+		// Cargar sidebar
+		fetch('../../Shared/Views/sidebar.html')
+			.then(r => r.text())
+			.then(html => {
+				document.getElementById('layoutContainer').innerHTML = html;
+				// Inicializar layout después de cargar el sidebar
+				initLayout();
+			});
 	</script>
 </body>
 </html>
