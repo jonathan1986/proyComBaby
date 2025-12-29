@@ -8,7 +8,7 @@ use PDO;
 header('Content-Type: application/json');
 
 // Config: token de mantenimiento (desde env o default)
-$MAINT_TOKEN = getenv('APP_MAINT_TOKEN') ?: 'changeme';
+$MAINT_TOKEN = getenv('CARRITO_MAINT_TOKEN') ?: 'changeme-strong-token';
 
 // Helper: leer JSON
 function jsonBody(): array {

@@ -82,18 +82,18 @@ INSERT INTO pedidos_reabastecimiento (id_pedido, fecha, id_proveedor, estado, ob
 (8, '2025-10-04 05:32:32', 2, 'recibido', 'pedido');
 
 
-INSERT INTO pedidos_reabastecimiento_detalle (id_pedido, id_producto, cantidad, precio_unitario) VALUES
-(1, 6, 15, 16.00),
-(2, 2, 7, 13.15),
-(2, 4, 5, 14.00),
-(2, 7, 6, 13.00),
-(3, 1, 7, 12.00),
-(3, 7, 5, 13.15),
-(4, 5, 10, 11.00),
-(5, 3, 8, 13.00),
-(6, 4, 6, 15.00),
-(7, 1, 6, 11.00),
-(8, 3, 6, 12.00);
+INSERT INTO pedidos_reabastecimiento_detalle (id_pedido, id_producto, cantidad, precio_unitario, precio_venta) VALUES
+(1, 6, 15, 16.00, 26.00),
+(2, 2, 7, 13.15, 23.00),
+(2, 4, 5, 14.00, 24.00),
+(2, 7, 6, 13.00, 25.00),
+(3, 1, 7, 12.00, 22.00),
+(3, 7, 5, 13.15, 25.00),
+(4, 5, 10, 11.00, 21.00),
+(5, 3, 8, 13.00, 23.00),
+(6, 4, 6, 15.00, 24.00),
+(7, 1, 6, 11.00, 22.00),
+(8, 3, 6, 12.00, 23.00);
 
 
 INSERT INTO inventario_movimientos (id_movimiento, id_producto, fecha, tipo, cantidad, motivo, id_pedido, usuario) VALUES

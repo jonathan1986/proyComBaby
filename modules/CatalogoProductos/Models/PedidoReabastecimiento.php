@@ -25,13 +25,14 @@ class PedidoReabastecimiento
                 ':observaciones' => (string)($cabecera['observaciones'] ?? ''),
             ]);
             $id = (int)$this->db->lastInsertId();
-            $ins = $this->db->prepare("INSERT INTO pedidos_reabastecimiento_detalle (id_pedido, id_producto, cantidad, precio_unitario) VALUES (:id_pedido, :id_producto, :cantidad, :precio)");
+            $ins = $this->db->prepare("INSERT INTO pedidos_reabastecimiento_detalle (id_pedido, id_producto, cantidad, precio_unitario, precio_venta) VALUES (:id_pedido, :id_producto, :cantidad, :precio, :precio_venta)");
             foreach ($detalle as $item) {
                 $ins->execute([
                     ':id_pedido' => $id,
                     ':id_producto' => (int)$item['id_producto'],
                     ':cantidad' => (int)$item['cantidad'],
                     ':precio' => (float)($item['precio_unitario'] ?? 0),
+                    ':precio_venta' => (float)($item['precio_venta'] ?? 0),
                 ]);
             }
             $this->db->commit();
@@ -83,7 +84,7 @@ class PedidoReabastecimiento
     public function listarDetalle(int $idPedido): array
     {
         // Incluye cantidad recibida acumulada desde inventario_movimientos vinculados a este pedido
-        $sql = 'SELECT d.*, p.nombre AS producto, COALESCE(r.recibido, 0) AS recibido
+        $sql = 'SELECT d.id_producto, d.cantidad, d.precio_unitario, d.precio_venta, p.nombre AS producto, COALESCE(r.recibido, 0) AS recibido
                 FROM pedidos_reabastecimiento_detalle d
                 INNER JOIN productos p ON p.id_producto = d.id_producto
                 LEFT JOIN (

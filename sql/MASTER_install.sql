@@ -134,7 +134,8 @@ CREATE TABLE pedidos_reabastecimiento_detalle (
     id_pedido INT NOT NULL,
     id_producto INT NOT NULL,
     cantidad INT NOT NULL CHECK (cantidad > 0),
-    precio_unitario DECIMAL(10,2) DEFAULT 0,
+    precio_unitario DECIMAL(10,2) DEFAULT 0 COMMENT 'Precio de compra al proveedor',
+    precio_venta DECIMAL(10,2) DEFAULT 0 COMMENT 'Precio de venta al público en el momento del pedido',
     PRIMARY KEY (id_pedido, id_producto),
     FOREIGN KEY (id_pedido) REFERENCES pedidos_reabastecimiento(id_pedido) ON DELETE CASCADE,
     FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
@@ -496,6 +497,42 @@ CREATE TABLE IF NOT EXISTS carritos_impuestos (
     FOREIGN KEY (id_carrito) REFERENCES carritos(id_carrito) ON DELETE CASCADE,
     FOREIGN KEY (id_impuesto) REFERENCES impuestos(id_impuesto) ON DELETE RESTRICT
 ) COMMENT='Desglose de impuestos por carrito';
+
+-- ============================================================
+-- ===== [origen: patch_add_precio_venta_reabastecimiento.sql] =====
+-- ============================================================
+-- Patch para agregar campo precio_venta a pedidos_reabastecimiento_detalle
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp_add_precio_venta_reabastecimiento $$
+CREATE PROCEDURE sp_add_precio_venta_reabastecimiento()
+BEGIN
+  DECLARE v_count INT DEFAULT 0;
+  
+  SELECT COUNT(*) INTO v_count
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'pedidos_reabastecimiento_detalle'
+    AND COLUMN_NAME = 'precio_venta';
+    
+  IF v_count = 0 THEN
+    SET @sql = 'ALTER TABLE pedidos_reabastecimiento_detalle 
+                ADD COLUMN precio_venta DECIMAL(10,2) DEFAULT 0 
+                COMMENT ''Precio de venta al público en el momento del pedido''
+                AFTER precio_unitario';
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+    
+    -- Inicializar con el precio actual de productos
+    UPDATE pedidos_reabastecimiento_detalle prd
+    JOIN productos p ON p.id_producto = prd.id_producto
+    SET prd.precio_venta = p.precio
+    WHERE prd.precio_venta = 0 OR prd.precio_venta IS NULL;
+  END IF;
+END $$
+DELIMITER ;
+CALL sp_add_precio_venta_reabastecimiento();
+DROP PROCEDURE sp_add_precio_venta_reabastecimiento;
 
 -- ============================================================
 -- ===== [origen: patch_add_idx_carritos_estado_fecha.sql] =====

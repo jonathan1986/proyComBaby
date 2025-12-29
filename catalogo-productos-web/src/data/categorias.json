@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "nombre": "Ropa de Hombre"
+    },
+    {
+        "id": 2,
+        "nombre": "Ropa de Mujer"
+    },
+    {
+        "id": 3,
+        "nombre": "Ropa Infantil"
+    },
+    {
+        "id": 4,
+        "nombre": "Accesorios"
+    },
+    {
+        "id": 5,
+        "nombre": "Calzado"
+    },
+    {
+        "id": 6,
+        "nombre": "Ropa Deportiva"
+    }
+]

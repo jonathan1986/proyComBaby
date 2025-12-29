@@ -152,8 +152,8 @@
                 </div>
                 <div class="table-responsive mt-3">
                   <table class="table align-middle" id="tablaDetallePedido">
-                    <thead><tr><th style="width:100px;">ID</th><th>Producto</th><th style="width:140px;">Cantidad</th><th style="width:160px;">Precio unit.</th><th style="width:80px;"></th></tr></thead>
-                    <tbody><tr><td colspan="5" class="text-muted">Sin ítems</td></tr></tbody>
+                    <thead><tr><th style="width:100px;">ID</th><th>Producto</th><th style="width:140px;">Cantidad</th><th style="width:160px;">Precio compra</th><th style="width:160px;">Precio venta</th><th style="width:80px;"></th></tr></thead>
+                    <tbody><tr><td colspan="6" class="text-muted">Sin ítems</td></tr></tbody>
                   </table>
                 </div>
               </div>
@@ -199,8 +199,8 @@
                 <hr/>
                 <div class="table-responsive">
                   <table class="table align-middle" id="tablaDetalleVerPedido">
-                    <thead><tr><th style="width:100px;">ID Prod.</th><th>Producto</th><th style="width:120px;">Cantidad</th><th style="width:120px;">Recibido</th><th style="width:140px;">Precio unit.</th><th style="width:160px;">Recibir ahora</th></tr></thead>
-                    <tbody><tr><td colspan="5" class="text-muted">Sin ítems</td></tr></tbody>
+                    <thead><tr><th style="width:100px;">ID Prod.</th><th>Producto</th><th style="width:120px;">Cantidad</th><th style="width:120px;">Recibido</th><th style="width:140px;">Precio compra</th><th style="width:140px;">Precio venta</th><th style="width:160px;">Recibir ahora</th></tr></thead>
+                    <tbody><tr><td colspan="7" class="text-muted">Sin ítems</td></tr></tbody>
                   </table>
                 </div>
                 <div class="d-flex justify-content-end gap-4 mt-2">
@@ -545,12 +545,10 @@
               const nom = escapeHTML(String(d.producto||''));
               const cant = Number(d.cantidad||0);
               const rec = Number(d.recibido||0);
-              const precio = Number(d.precio_unitario||0);
-              const cantHtml = escapeHTML(String(cant));
-              const recHtml = escapeHTML(String(rec));
-              const precioHtml = escapeHTML(String(precio));
-              return `<tr data-id_producto="${idp}"><td>${idp}</td><td>${nom}</td><td>${cantHtml}</td><td>${recHtml}</td><td>${precioHtml}</td><td><input type="number" min="0" max="${Math.max(0, cant - rec)}" step="1" class="form-control form-control-sm vp-recv" value="0"></td></tr>`;
-            }).join('') : '<tr><td colspan="5" class="text-muted">Sin ítems</td></tr>';
+              const precioCompra = escapeHTML(String(Number(d.precio_unitario||0).toFixed(2)));
+              const precioVenta = escapeHTML(String(Number(d.precio_venta||0).toFixed(2)));
+              return `<tr data-id_producto="${idp}"><td>${idp}</td><td>${nom}</td><td>${cant}</td><td>${rec}</td><td>${precioCompra}</td><td>${precioVenta}</td><td><input type="number" min="0" max="${Math.max(0, cant - rec)}" step="1" class="form-control form-control-sm vp-recv" value="0"></td></tr>`;
+            }).join('') : '<tr><td colspan="7" class="text-muted">Sin ítems</td></tr>';
             // Totales
             try{
               const totalItems = det.reduce((a,b)=> a + (Number(b.cantidad)||0), 0);
@@ -712,7 +710,7 @@
         if (document.getElementById('obsPedido')) document.getElementById('obsPedido').value='';
         detalleItems.length = 0;
         const tb = document.querySelector('#tablaDetallePedido tbody');
-        if (tb) tb.innerHTML = '<tr><td colspan="5" class="text-muted">Sin ítems</td></tr>';
+        if (tb) tb.innerHTML = '<tr><td colspan="6" class="text-muted">Sin ítems</td></tr>';
       }
       document.getElementById('btnNuevoPedido')?.addEventListener('click', () => {
         resetNuevoPedido();
@@ -721,15 +719,17 @@
       function renderDetalle(items){
         const tb = document.querySelector('#tablaDetallePedido tbody');
         if (!tb) return;
-        if (!Array.isArray(items) || !items.length){ tb.innerHTML = '<tr><td colspan="5" class="text-muted">Sin ítems</td></tr>'; return; }
+        if (!Array.isArray(items) || !items.length){ tb.innerHTML = '<tr><td colspan="6" class="text-muted">Sin ítems</td></tr>'; return; }
         tb.innerHTML = items.map((it, idx)=>{
           const id = escapeHTML(String(it.id_producto));
           const nombre = escapeHTML(String(it.nombre||''));
           const cant = escapeHTML(String(it.cantidad||1));
-          const precio = escapeHTML(String(it.precio_unitario||0));
+          const precioCompra = escapeHTML(String(it.precio_unitario||0));
+          const precioVenta = escapeHTML(String(it.precio_venta||0));
           return `<tr data-index="${idx}"><td>${id}</td><td>${nombre}</td>
             <td><input type="number" min="1" class="form-control form-control-sm" data-field="cantidad" value="${cant}"></td>
-            <td><input type="number" min="0" step="0.01" class="form-control form-control-sm" data-field="precio_unitario" value="${precio}"></td>
+            <td><input type="number" min="0" step="0.01" class="form-control form-control-sm" data-field="precio_unitario" value="${precioCompra}"></td>
+            <td><input type="number" min="0" step="0.01" class="form-control form-control-sm" data-field="precio_venta" value="${precioVenta}"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger" data-action="quitar">Quitar</button></td></tr>`;
         }).join('');
       }
@@ -737,7 +737,7 @@
         const id = String(item.id_producto);
         const ya = detalleItems.find(x=> String(x.id_producto) === id);
         if (ya){ ya.cantidad = (parseInt(ya.cantidad,10)||1) + 1; }
-        else { detalleItems.push({ id_producto: id, nombre: item.nombre||'', cantidad: 1, precio_unitario: 0 }); }
+        else { detalleItems.push({ id_producto: id, nombre: item.nombre||'', cantidad: 1, precio_unitario: 0, precio_venta: item.precio||0 }); }
         renderDetalle(detalleItems);
       }
       document.querySelector('#tablaDetallePedido tbody')?.addEventListener('input', (e)=>{
@@ -745,7 +745,7 @@
         if (!tr) return;
         const idx = parseInt(tr.getAttribute('data-index'),10);
         const field = e.target.getAttribute('data-field');
-        if (!['cantidad','precio_unitario'].includes(field)) return;
+        if (!['cantidad','precio_unitario','precio_venta'].includes(field)) return;
         const val = field==='cantidad' ? Math.max(1, parseInt(e.target.value,10)||1) : Math.max(0, parseFloat(e.target.value)||0);
         detalleItems[idx][field] = val;
       });
@@ -825,10 +825,18 @@
       let prodSearchTimer = null;
       qProdPed?.addEventListener('input', ()=>{ clearTimeout(prodSearchTimer); prodSearchTimer = setTimeout(()=> buscarProdPedido(qProdPed.value), 250); });
       qProdPed?.addEventListener('focus', ()=>{ if (qProdPed?.value) buscarProdPedido(qProdPed.value); });
-      prodSug?.addEventListener('click', (e)=>{
+      prodSug?.addEventListener('click', async (e)=>{
         const btn = e.target.closest('button[data-id]');
         if (!btn) return;
-        agregarItemDetalle({ id_producto: btn.getAttribute('data-id'), nombre: btn.getAttribute('data-nombre'), cantidad: 1, precio_unitario: 0 });
+        const idProd = btn.getAttribute('data-id');
+        const nombre = btn.getAttribute('data-nombre');
+        let precio = 0;
+        try {
+          const r = await apiFetch(API.producto + '?id=' + encodeURIComponent(idProd));
+          const data = await r.json();
+          if (data.producto && data.producto.precio) precio = parseFloat(data.producto.precio)||0;
+        } catch {}
+        agregarItemDetalle({ id_producto: idProd, nombre: nombre, cantidad: 1, precio_unitario: 0, precio: precio });
         prodSug.style.display='none'; prodSug.innerHTML='';
         if (qProdPed) qProdPed.value='';
       });
@@ -840,7 +848,7 @@
         if (!detalleItems.length) { alert('Agrega al menos un producto'); return; }
         const payload = {
           cabecera: { id_proveedor: idProv, observaciones: document.getElementById('obsPedido')?.value||'' },
-          detalle: detalleItems.map(x=> ({ id_producto: parseInt(x.id_producto,10)||0, cantidad: parseInt(x.cantidad,10)||1, precio_unitario: parseFloat(x.precio_unitario)||0 }))
+          detalle: detalleItems.map(x=> ({ id_producto: parseInt(x.id_producto,10)||0, cantidad: parseInt(x.cantidad,10)||1, precio_unitario: parseFloat(x.precio_unitario)||0, precio_venta: parseFloat(x.precio_venta)||0 }))
         };
         try{
           const r = await apiFetch(API.pedidos, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});

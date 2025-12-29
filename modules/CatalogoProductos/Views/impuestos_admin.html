@@ -206,11 +206,12 @@
       producto: window.CATALOGO_BASE + 'Controllers/producto_api.php'
     };
 
-    // Headers con autenticación Bearer
+    // Headers con autenticación Bearer y token de mantenimiento
     function authHeaders(){
       return {
         'Authorization': `Bearer ${authToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Maint-Token': 'changeme-strong-token'
       };
     }
 
@@ -360,7 +361,18 @@
         try{ 
           const u = new URL(API.impuestos, location.origin); 
           u.searchParams.set('id', id);
-          await fetch(u, { method:'DELETE', headers: authHeaders() }).then(r=>r.json());
+          const r = await fetch(u, { method:'DELETE', headers: authHeaders() });
+          const txt = await r.text();
+          let j; try { j = JSON.parse(txt); } catch { j = null; }
+          if (!r.ok) {
+            if (r.status === 401 || r.status === 403) {
+              alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+              localStorage.removeItem('authToken');
+              window.location.href = '../../GestionUsuarios/Views/login.html';
+              return;
+            }
+            throw new Error(j?.error || txt || ('HTTP '+r.status));
+          }
           await loadImpuestos();
         }catch(err){ alert('Error eliminando: '+err.message); }
         return;
@@ -376,7 +388,27 @@
         if (valor!==null && valor!=='') payload.valor = parseFloat(valor);
         if (activo!==null && activo!=='') payload.activo = parseInt(activo,10);
         if (Object.keys(payload).length===0) return;
-        try{ const u = new URL(API.impuestos, location.origin); u.searchParams.set('id', id); await apiSend(u, 'PATCH', payload); await loadImpuestos(); }
+        try{ 
+          const u = API.impuestos + '?id=' + id;
+          const r = await fetch(u, { 
+            method: 'PATCH', 
+            headers: authHeaders(), 
+            body: JSON.stringify(payload) 
+          });
+          const txt = await r.text();
+          let j; try { j = JSON.parse(txt); } catch { j = null; }
+          if (!r.ok) {
+            if (r.status === 401 || r.status === 403) {
+              alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+              localStorage.removeItem('authToken');
+              window.location.href = '../../GestionUsuarios/Views/login.html';
+              return;
+            }
+            throw new Error(j?.error || txt || ('HTTP '+r.status));
+          }
+          if (j?.success === false) throw new Error(j.error || 'Error');
+          await loadImpuestos(); 
+        }
         catch(err){ alert('Error actualizando: '+err.message); }
       }
     });

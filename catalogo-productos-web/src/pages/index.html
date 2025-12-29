@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moda Urbana · Catálogo Interactivo</title>
+    <link rel="stylesheet" href="../styles/base.css">
+    <link rel="stylesheet" href="../styles/catalogo.css">
+</head>
+<body data-api-base="/modules/CatalogoProductos/Controllers/">
+    <div class="page-shell">
+        <header class="site-header" aria-label="Cabecera principal">
+            <div class="announcement-bar">
+                <p>Envío gratis desde $499 · Cambios sin costo durante 30 días · Nuevos drops cada viernes</p>
+                <button class="announcement-cta" type="button">Ver novedades</button>
+            </div>
+            <div class="primary-nav container">
+                <a class="brand" href="#" aria-label="Volver al inicio">BabyMarket</a>
+                <nav class="nav-links" aria-label="Navegación principal">
+                    <a href="#" class="is-active">Ropa</a>
+                    <a href="#">Calzado</a>
+                    <a href="#">Accesorios</a>
+                    <a href="#">Ofertas</a>
+                    <a href="#">Novedades</a>
+                </nav>
+                <div class="nav-actions">
+                    <button class="ghost-btn" type="button">Soporte</button>
+                    <a class="ghost-btn" href="carrito.html">Carrito</a>
+                    <button class="primary-btn" type="button">Iniciar sesión</button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="category-hero container">
+                <div class="hero-copy">
+                    <div class="breadcrumbs" aria-label="Breadcrumb">
+                        <a href="#">Inicio</a>
+                        <span>/</span>
+                        <a href="#">Moda</a>
+                        <span>/</span>
+                        <span>Ropa</span>
+                    </div>
+                    <h1>Ropa para cada historia</h1>
+                    <p class="hero-lede">Explora siluetas minimalistas, esenciales comfy y piezas statement inspiradas en la experiencia de compra de Baratazo. Todo conectado a tu inventario real.</p>
+                    <div class="hero-tags">
+                        <span class="tag">Colección cápsula</span>
+                        <span class="tag">Más vendidos</span>
+                        <span class="tag">Hecho en LATAM</span>
+                    </div>
+                    <div class="hero-stats">
+                        <article>
+                            <strong id="statProductos">0</strong>
+                            <p>Productos disponibles</p>
+                        </article>
+                        <article>
+                            <strong>72h</strong>
+                            <p>Entrega promedio</p>
+                        </article>
+                        <article>
+                            <strong>4.8/5</strong>
+                            <p>Valoración clientes</p>
+                        </article>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="hero-card">
+                        <p class="eyebrow">Colección Resort 2025</p>
+                        <h2>Texturas ligeras + color editorial</h2>
+                        <p>Haz scroll para descubrir faldas satinadas, camisas oversized y conjuntos coordinados.</p>
+                        <button class="primary-btn" type="button">Ver selección curada</button>
+                    </div>
+                    <div class="hero-figure" aria-hidden="true">
+                        <span>Drop 07 · Summer layers</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="category-content container" aria-label="Listado de productos con filtros">
+                <aside class="filters-panel" aria-label="Filtros">
+                    <div class="filters-header">
+                        <h2>Filtrar resultados</h2>
+                        <button id="clearFilters" class="ghost-btn" type="button">Limpiar todo</button>
+                    </div>
+                    <form id="filtersForm">
+                        <div class="filter-block">
+                            <label for="searchInput">Buscar</label>
+                            <div class="input-with-icon">
+                                <span aria-hidden="true">&#128269;</span>
+                                <input type="search" id="searchInput" placeholder="Vestidos satinados, blazer, denim...">
+                            </div>
+                        </div>
+                        <div class="filter-block">
+                            <div class="block-header">
+                                <h3>Categorías</h3>
+                            </div>
+                            <div id="categoriaList" class="checkbox-stack" aria-live="polite"></div>
+                        </div>
+                        <div class="filter-block">
+                            <div class="block-header">
+                                <h3>Precio</h3>
+                                <span id="priceRangeLabel">$0 — $0</span>
+                            </div>
+                            <div class="price-inputs">
+                                <label for="priceMin">Mín.</label>
+                                <input type="number" id="priceMin" min="0" step="1" placeholder="0">
+                                <span>—</span>
+                                <label for="priceMax">Máx.</label>
+                                <input type="number" id="priceMax" min="0" step="1" placeholder="9999">
+                            </div>
+                        </div>
+                        <div class="filter-block">
+                            <div class="block-header">
+                                <h3>Disponibilidad</h3>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="stockToggle">
+                                <span>Mostrar solo artículos en stock</span>
+                            </label>
+                        </div>
+                        <div class="filter-block">
+                            <div class="block-header">
+                                <h3>Etiquetas rápidas</h3>
+                            </div>
+                            <div class="tag-cloud">
+                                <button type="button" class="chip" data-chip="eco">Materiales eco</button>
+                                <button type="button" class="chip" data-chip="essentials">Esenciales</button>
+                                <button type="button" class="chip" data-chip="premium">Premium</button>
+                                <button type="button" class="chip" data-chip="sale">Outlet</button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="support-card">
+                        <p class="eyebrow">¿Necesitas ayuda?</p>
+                        <h3>Styling personalizado 1:1</h3>
+                        <p>Agenda una sesión express de 15 min con nuestro equipo para curar looks.</p>
+                        <button class="ghost-btn" type="button">Agenda ahora</button>
+                    </div>
+                </aside>
+
+                <section class="listing-panel">
+                    <div class="listing-toolbar">
+                        <div>
+                            <p id="resultCount">0 resultados</p>
+                            <div id="activeFilters" class="chip-stack" aria-live="polite"></div>
+                        </div>
+                        <div class="toolbar-controls">
+                            <label class="select">
+                                Ordenar
+                                <select id="sortSelect">
+                                    <option value="featured">Destacados</option>
+                                    <option value="price-asc">Precio: menor a mayor</option>
+                                    <option value="price-desc">Precio: mayor a menor</option>
+                                    <option value="newest">Últimos agregados</option>
+                                </select>
+                            </label>
+                            <div class="view-toggle" role="group" aria-label="Cambiar vista">
+                                <button type="button" data-view="grid" class="is-active">Grid</button>
+                                <button type="button" data-view="list">Lista</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="productos" class="product-grid" aria-live="polite"></div>
+                    <div id="paginationControls" class="pagination"></div>
+                </section>
+            </section>
+
+            <section class="category-highlights container" aria-label="Beneficios">
+                <article>
+                    <h3>Pagos flexibles</h3>
+                    <p>3 y 6 MSI con tarjetas participantes y BNPL integrado.</p>
+                </article>
+                <article>
+                    <h3>Click & Collect</h3>
+                    <p>Retira en tienda o recibe en lockers aliados.</p>
+                </article>
+                <article>
+                    <h3>Garantía extendida</h3>
+                    <p>30 días para cambios sin costo adicional.</p>
+                </article>
+            </section>
+
+            <section class="newsletter-band">
+                <div class="container">
+                    <p class="eyebrow">Suscríbete</p>
+                    <h2>Drop-list privada y accesos anticipados</h2>
+                    <form class="newsletter-form">
+                        <input type="email" placeholder="tu@correo.com" aria-label="Correo electrónico">
+                        <button class="primary-btn" type="submit">Unirme</button>
+                    </form>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="container">
+                <p>&copy; 2025 Catálogo de Productos · Integrado con módulos internos.</p>
+            </div>
+        </footer>
+    </div>
+
+    <template id="producto-card-template">
+        <article class="product-card">
+            <div class="product-badges"></div>
+            <div class="product-figure">
+                <img src="" alt="" loading="lazy">
+                <button class="wishlist" type="button" aria-label="Agregar a favoritos">&#9825;</button>
+            </div>
+            <div class="product-info">
+                <p class="product-category"></p>
+                <h3 class="product-title"></h3>
+                <div class="product-rating" aria-label="Valoración">
+                    <span class="stars" aria-hidden="true">★★★★★</span>
+                    <span class="rating-value">4.8</span>
+                </div>
+                <div class="product-price">
+                    <span class="current"></span>
+                    <span class="compare"></span>
+                </div>
+                <button class="primary-btn add-to-cart" type="button">Agregar al carrito</button>
+            </div>
+        </article>
+    </template>
+
+    <script type="module" src="../scripts/catalogo.js"></script>
+</body>
+</html>
