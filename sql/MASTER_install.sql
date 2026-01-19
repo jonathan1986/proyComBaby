@@ -91,6 +91,18 @@ CREATE TABLE productos_atributos (
 ) COMMENT='Relación productos-atributos';
 
 
+-- Tabla de países
+CREATE TABLE paises (
+    id_pais INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Identificador único del país',
+    nombre VARCHAR(100) NOT NULL UNIQUE COMMENT 'Nombre del país',
+    codigo_iso_2 CHAR(2) NOT NULL COMMENT 'Código ISO 3166-1 alpha-2 (ej: CO, US, MX)',
+    codigo_iso_3 CHAR(3) NOT NULL COMMENT 'Código ISO 3166-1 alpha-3 (ej: COL, USA, MEX)',
+    codigo_telefono VARCHAR(5) COMMENT 'Código de teléfono internacional',
+    activo TINYINT DEFAULT 1 NOT NULL COMMENT '1=activo, 0=inactivo',
+    INDEX idx_paises_nombre (nombre),
+    INDEX idx_paises_codigo_iso (codigo_iso_2, codigo_iso_3)
+) COMMENT='Catálogo de países';
+
 -- Tabla de proveedores
 CREATE TABLE proveedores (
     id_proveedor INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Identificador único del proveedor',
@@ -101,11 +113,21 @@ CREATE TABLE proveedores (
     direccion VARCHAR(255) COMMENT 'Dirección',
     ciudad VARCHAR(100) COMMENT 'Ciudad',
     ruc VARCHAR(20) COMMENT 'RUC',
+    id_pais INT COMMENT 'ID del país del proveedor',
+    descripcion TEXT NOT NULL COMMENT 'Descripción del proveedor',
+    pagina_web VARCHAR(255) COMMENT 'Página web del proveedor',
+    tipo_proveedor ENUM('Distribuidor','Fabricante','Mayorista','Minorista','Servicios','Otro') NOT NULL DEFAULT 'Distribuidor' COMMENT 'Tipo o categoría del proveedor',
+    regimen_iva ENUM('Régimen Común','Régimen Simplificado','Gran Contribuyente','No Obligado') COMMENT 'Régimen de IVA del proveedor',
+    es_sin_animo_lucro BOOLEAN DEFAULT FALSE COMMENT 'Indica si la entidad es sin ánimo de lucro',
+    representante_legal VARCHAR(150) COMMENT 'Nombre del representante legal',
     estado TINYINT DEFAULT 1 NOT NULL COMMENT '1=activo, 0=inactivo (borrado lógico)',
     fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Fecha de creación del registro',
     fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Fecha de última actualización',
     usuario_creacion VARCHAR(50) COMMENT 'Usuario que creó el registro',
-    usuario_actualizacion VARCHAR(50) COMMENT 'Usuario que actualizó el registro'
+    usuario_actualizacion VARCHAR(50) COMMENT 'Usuario que actualizó el registro',
+    FOREIGN KEY (id_pais) REFERENCES paises(id_pais),
+    ADD INDEX idx_tipo_proveedor (tipo_proveedor),
+    ADD INDEX idx_regimen_iva (regimen_iva
 ) COMMENT='Proveedores de productos';
 
 -- Relación N:M entre productos y proveedores

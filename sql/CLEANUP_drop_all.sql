@@ -95,6 +95,7 @@ DROP TABLE IF EXISTS productos_categorias;
 DROP TABLE IF EXISTS imagenes_productos;
 
 -- Tablas maestras
+DROP TABLE IF EXISTS paises;
 DROP TABLE IF EXISTS atributos;
 DROP TABLE IF EXISTS proveedores;
 DROP TABLE IF EXISTS productos;

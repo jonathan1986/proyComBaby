@@ -373,6 +373,8 @@
 			movs: window.CATALOGO_BASE + 'Controllers/inventario_movimientos_api.php'
 		};
 
+		const MAINT_TOKEN = 'changeme-strong-token';
+
 		// Ruta a la vista de inventario
 		const INVENTARIO_VIEW = (window.APP_BASE || '/') + 'modules/CatalogoProductos/Views/inventario.html';
 
@@ -757,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				async function loadImpuestosActivos(){
 					// Intentar usar ?listar=1&activo=1; si el backend no lo filtra, filtramos aquí
-					const d = await apiFetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`, { method: 'GET' });
+					const d = await catalogoApiFetch(`${ENDPOINTS.impuestos}?listar=1&activo=1`, { method: 'GET' });
 					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
 					const activos = lista.filter(i => (i.activo===1||i.activo==='1'||i.activo===true));
 					return activos;
@@ -765,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				async function loadImpuestosAsignados(){
 					if (!state.productoId) return [];
-					const d = await apiFetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`, { method: 'GET' });
+					const d = await catalogoApiFetch(`${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}`, { method: 'GET' });
 					const lista = Array.isArray(d.impuestos) ? d.impuestos : (Array.isArray(d.data) ? d.data : []);
 					return lista;
 				}
@@ -828,7 +830,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					const idImp = selImp.value;
 					if (!idImp) return;
 					try{
-						const data = await apiFetch(ENDPOINTS.prodImpuestos, { method:'POST', body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) });
+						await catalogoApiFetch(ENDPOINTS.prodImpuestos, { method:'POST', body: JSON.stringify({ id_producto: Number(state.productoId), id_impuesto: Number(idImp) }) });
 						cargarUIImpuestos();
 					} catch(err){
 						alert('Error al asignar: ' + err.message);
@@ -842,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
 					const idImp = String(btn.getAttribute('data-id'));
 					try{
 						const url = `${ENDPOINTS.prodImpuestos}?id_producto=${encodeURIComponent(String(state.productoId))}&id_impuesto=${encodeURIComponent(idImp)}`;
-						const data = await apiFetch(url, { method:'DELETE' });
+						await catalogoApiFetch(url, { method:'DELETE' });
 						cargarUIImpuestos();
 					} catch(err){
 						alert('Error al quitar: ' + err.message);
@@ -1150,20 +1152,31 @@ document.addEventListener('DOMContentLoaded', () => {
 			} catch {}
 		}
 
-async function apiFetch(url, opts={}) {
-  const headers = {
-    'Content-Type':'application/json',
-    'Authorization': `Bearer ${authToken}`
-  };
-  const res = await fetch(url, {...opts, headers});
-  if (res.status === 401 || res.status === 403) {
-    alert('Sesión expirada o sin permisos. Redirigiendo a login...');
-    localStorage.removeItem('authToken');
-    window.location.href = '../../GestionUsuarios/Views/login.html';
-    throw new Error('No autorizado');
-  }
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+async function catalogoApiFetch(url, opts = {}) {
+	const token = localStorage.getItem('authToken');
+	const headers = {
+		'Content-Type': 'application/json',
+		'X-Maint-Token': MAINT_TOKEN,
+		...(opts.headers || {})
+	};
+	if (token) headers['Authorization'] = `Bearer ${token}`;
+	const response = await fetch(url, { ...opts, headers });
+	if (response.status === 401 || response.status === 403) {
+		alert('Sesión expirada o sin permisos. Redirigiendo a login...');
+		localStorage.removeItem('authToken');
+		window.location.href = '../../GestionUsuarios/Views/login.html';
+		throw new Error('No autorizado');
+	}
+	const text = await response.text();
+	let data = null;
+	if (text) {
+		try { data = JSON.parse(text); } catch { data = null; }
+	}
+	if (!response.ok || (data && data.success === false)) {
+		const msg = (data && data.error) || text || `HTTP ${response.status}`;
+		throw new Error(msg);
+	}
+	return data ?? {};
 }
 
 	</script>

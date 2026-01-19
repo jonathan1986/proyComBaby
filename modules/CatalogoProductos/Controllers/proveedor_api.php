@@ -42,6 +42,13 @@ try {
                 'direccion' => $_POST['direccion'] ?? '',
                 'ciudad' => $_POST['ciudad'] ?? '',
                 'ruc' => $_POST['ruc'] ?? '',
+                'id_pais' => !empty($_POST['id_pais']) ? (int)$_POST['id_pais'] : null,
+                'descripcion' => $_POST['descripcion'] ?? '',
+                'pagina_web' => $_POST['pagina_web'] ?? '',
+                'tipo_proveedor' => $_POST['tipo_proveedor'] ?? 'Distribuidor',
+                'regimen_iva' => $_POST['regimen_iva'] ?? null,
+                'es_sin_animo_lucro' => isset($_POST['es_sin_animo_lucro']) ? (int)$_POST['es_sin_animo_lucro'] : 0,
+                'representante_legal' => $_POST['representante_legal'] ?? '',
                 'estado' => isset($_POST['estado']) ? (int)$_POST['estado'] : 1,
                 'usuario_creacion' => $_POST['usuario_creacion'] ?? ''
             ];
@@ -61,6 +68,13 @@ try {
                 'direccion' => $_PUT['direccion'] ?? '',
                 'ciudad' => $_PUT['ciudad'] ?? '',
                 'ruc' => $_PUT['ruc'] ?? '',
+                'id_pais' => !empty($_PUT['id_pais']) ? (int)$_PUT['id_pais'] : null,
+                'descripcion' => $_PUT['descripcion'] ?? '',
+                'pagina_web' => $_PUT['pagina_web'] ?? '',
+                'tipo_proveedor' => $_PUT['tipo_proveedor'] ?? 'Distribuidor',
+                'regimen_iva' => $_PUT['regimen_iva'] ?? null,
+                'es_sin_animo_lucro' => isset($_PUT['es_sin_animo_lucro']) ? (int)$_PUT['es_sin_animo_lucro'] : 0,
+                'representante_legal' => $_PUT['representante_legal'] ?? '',
                 'estado' => isset($_PUT['estado']) ? (int)$_PUT['estado'] : 1,
                 'usuario_actualizacion' => $_PUT['usuario_actualizacion'] ?? ''
             ];

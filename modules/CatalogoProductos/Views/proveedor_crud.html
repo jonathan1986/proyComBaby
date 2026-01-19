@@ -23,103 +23,193 @@
 
     <!-- Contenido principal -->
     <div id="mainContent" style="display: none;">
-    <div class="rounded shadow-sm d-flex align-items-center justify-content-between px-4 py-3 mb-4" style="background-color: rgb(232,232,232); color: #333;">
-        <h1 class="mb-0" style="font-size:1.7rem;">Gestión de Proveedores</h1>
+    <div class="rounded shadow-sm d-flex align-items-center justify-content-between px-4 py-4 mb-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div>
+            <h1 class="mb-1" style="font-size:2rem; font-weight:700;">📦 Gestión de Proveedores</h1>
+            <p class="mb-0" style="opacity:0.9;">Administra todos tus proveedores en un solo lugar</p>
+        </div>
         <div class="d-flex align-items-center gap-3">
-            <button id="btnMostrarForm" type="button" class="btn btn-success fw-bold">
-                <span class="me-2">➕</span> Añadir
+            <button id="btnMostrarForm" type="button" class="btn btn-light fw-bold px-4 py-2" style="border-radius:8px; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+                <span class="me-2">➕</span> Nuevo proveedor
             </button>
         </div>
     </div>
-    <form id="proveedorForm" class="card p-4 mb-4 shadow-sm" style="display:none; max-width: 500px;">
-        <div style="background:#d7d8e5; border-radius:6px; padding:10px; margin-bottom:18px;">
-            <h4 id="formTitulo" class="mb-0 fw-bold text-center"></h4>
+    <form id="proveedorForm" class="card p-5 mb-4 shadow-lg" style="display:none; max-width:900px; border:none; border-radius:12px; background: white;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius:8px; padding:15px; margin-bottom:30px;">
+            <h4 id="formTitulo" class="mb-0 fw-bold text-white text-center" style="font-size:1.3rem;"></h4>
         </div>
-        <div class="mb-3">
-            <label for="nombre" class="form-label mb-1"><strong>Nombre del proveedor</strong></label>
-            <input type="text" id="nombre" name="nombre" maxlength="100" required class="form-control">
-            <span id="nombreError" class="text-danger small"></span>
+        
+        <!-- Sección 1: Información Básica -->
+        <div class="mb-4">
+            <h5 style="color:#667eea; font-weight:600; border-bottom:2px solid #667eea; padding-bottom:10px; margin-bottom:20px;">📋 Información Básica</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="nombre" class="form-label fw-600" style="color:#333;"><strong>Nombre del proveedor</strong></label>
+                    <input type="text" id="nombre" name="nombre" maxlength="100" required class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="Ej: TechSupplies SA">
+                    <span id="nombreError" class="text-danger small d-block mt-1"></span>
+                </div>
+                <div class="col-md-6">
+                    <label for="contacto" class="form-label fw-600" style="color:#333;"><strong>Persona de contacto</strong></label>
+                    <input type="text" id="contacto" name="contacto" maxlength="100" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="Nombre del contacto">
+                </div>
+                <div class="col-md-6">
+                    <label for="email" class="form-label fw-600" style="color:#333;"><strong>Email</strong></label>
+                    <input type="email" id="email" name="email" maxlength="100" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="correo@empresa.com">
+                </div>
+                <div class="col-md-6">
+                    <label for="telefono" class="form-label fw-600" style="color:#333;"><strong>Teléfono</strong></label>
+                    <input type="text" id="telefono" name="telefono" maxlength="30" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="+1 234 567 8900">
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="contacto" class="form-label mb-1"><strong>Persona de contacto</strong></label>
-            <input type="text" id="contacto" name="contacto" maxlength="100" class="form-control">
+        
+        <!-- Sección 2: Ubicación -->
+        <div class="mb-4">
+            <h5 style="color:#667eea; font-weight:600; border-bottom:2px solid #667eea; padding-bottom:10px; margin-bottom:20px;">🌍 Ubicación</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="id_pais" class="form-label fw-600" style="color:#333;"><strong>País</strong></label>
+                    <select id="id_pais" name="id_pais" class="form-select" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
+                        <option value="">-- Seleccione un país --</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="ciudad" class="form-label fw-600" style="color:#333;"><strong>Ciudad</strong></label>
+                    <input type="text" id="ciudad" name="ciudad" maxlength="100" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="Ciudad">
+                </div>
+                <div class="col-12">
+                    <label for="direccion" class="form-label fw-600" style="color:#333;"><strong>Dirección completa</strong></label>
+                    <input type="text" id="direccion" name="direccion" maxlength="255" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="Calle, número, apartamento">
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="telefono" class="form-label mb-1"><strong>Teléfono</strong></label>
-            <input type="text" id="telefono" name="telefono" maxlength="30" class="form-control">
+        
+        <!-- Sección 3: Información Fiscal -->
+        <div class="mb-4">
+            <h5 style="color:#667eea; font-weight:600; border-bottom:2px solid #667eea; padding-bottom:10px; margin-bottom:20px;">💼 Información Fiscal</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="ruc" class="form-label fw-600" style="color:#333;"><strong>RUC</strong></label>
+                    <input type="text" id="ruc" name="ruc" maxlength="20" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
+                </div>
+                <div class="col-md-4">
+                    <label for="tipo_proveedor" class="form-label fw-600" style="color:#333;"><strong>Tipo de proveedor</strong></label>
+                    <select id="tipo_proveedor" name="tipo_proveedor" required class="form-select" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
+                        <option value="Distribuidor" selected>Distribuidor</option>
+                        <option value="Fabricante">Fabricante</option>
+                        <option value="Mayorista">Mayorista</option>
+                        <option value="Minorista">Minorista</option>
+                        <option value="Servicios">Servicios</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="regimen_iva" class="form-label fw-600" style="color:#333;"><strong>Régimen de IVA</strong></label>
+                    <select id="regimen_iva" name="regimen_iva" class="form-select" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
+                        <option value="">-- Seleccione régimen --</option>
+                        <option value="Régimen Común">Régimen Común</option>
+                        <option value="Régimen Simplificado">Régimen Simplificado</option>
+                        <option value="Gran Contribuyente">Gran Contribuyente</option>
+                        <option value="No Obligado">No Obligado</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="representante_legal" class="form-label fw-600" style="color:#333;"><strong>Representante legal</strong></label>
+                    <input type="text" id="representante_legal" name="representante_legal" maxlength="150" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
+                </div>
+                <div class="col-md-6">
+                    <label for="es_sin_animo_lucro" class="form-label fw-600" style="color:#333;"><strong>¿Sin ánimo de lucro?</strong></label>
+                    <select id="es_sin_animo_lucro" name="es_sin_animo_lucro" class="form-select" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
+                        <option value="0" selected>No</option>
+                        <option value="1">Sí</option>
+                    </select>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="email" class="form-label mb-1"><strong>Email</strong></label>
-            <input type="email" id="email" name="email" maxlength="100" class="form-control">
+        
+        <!-- Sección 4: Detalles Adicionales -->
+        <div class="mb-4">
+            <h5 style="color:#667eea; font-weight:600; border-bottom:2px solid #667eea; padding-bottom:10px; margin-bottom:20px;">📝 Detalles Adicionales</h5>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label for="descripcion" class="form-label fw-600" style="color:#333;"><strong>Descripción</strong></label>
+                    <textarea id="descripcion" name="descripcion" rows="3" required class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="Descripción del proveedor y sus servicios..."></textarea>
+                </div>
+                <div class="col-12">
+                    <label for="pagina_web" class="form-label fw-600" style="color:#333;"><strong>Página web</strong></label>
+                    <input type="url" id="pagina_web" name="pagina_web" maxlength="255" class="form-control" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;" placeholder="https://www.ejemplo.com">
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="direccion" class="form-label mb-1"><strong>Dirección</strong></label>
-            <input type="text" id="direccion" name="direccion" maxlength="255" class="form-control">
-        </div>
-        <div class="mb-3">
-            <label for="ciudad" class="form-label mb-1"><strong>Ciudad</strong></label>
-            <input type="text" id="ciudad" name="ciudad" maxlength="100" class="form-control">
-        </div>
-        <div class="mb-3">
-            <label for="ruc" class="form-label mb-1"><strong>RUC</strong></label>
-            <input type="text" id="ruc" name="ruc" maxlength="20" class="form-control">
-        </div>
-        <div class="mb-3">
-            <label for="estado" class="form-label mb-1"><strong>Estado</strong></label>
-            <select id="estado" name="estado" required class="form-select">
+        
+        <!-- Sección 5: Estado -->
+        <div class="mb-4">
+            <label for="estado" class="form-label fw-600" style="color:#333;"><strong>Estado</strong></label>
+            <select id="estado" name="estado" required class="form-select" style="border-radius:6px; border:1px solid #e0e0e0; padding:10px 12px;">
                 <option value="1" selected>Activo</option>
                 <option value="0">Inactivo</option>
             </select>
         </div>
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary flex-fill">Guardar</button>
-            <button type="button" id="btnCancelarForm" class="btn btn-secondary flex-fill">Cancelar</button>
+        
+        <!-- Botones de acción -->
+        <div class="d-flex gap-2 mt-5 pt-3 border-top">
+            <button type="submit" class="btn fw-bold px-5 py-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border:none; border-radius:6px; flex:1;">
+                💾 Guardar
+            </button>
+            <button type="button" id="btnCancelarForm" class="btn px-5 py-2" style="background-color:#f0f0f0; color:#333; border:1px solid #e0e0e0; border-radius:6px; flex:1;">
+                ✕ Cancelar
+            </button>
         </div>
     </form>
-    <div class="container mt-4">
-        <div class="row mb-3 align-items-end">
+    <div class="container mt-5 mb-4">
+        <div class="row mb-4 align-items-end">
             <div class="col-12">
-                <div style="background:#f4f4fa; border-radius:8px; border:1px solid #d7d8e5; padding:18px;" class="mb-2">
-                    <div class="d-flex align-items-center flex-nowrap gap-3 w-100 mb-2">
-                        <label for="filtroCampo" class="form-label mb-0" style="white-space:nowrap;">Filtro campo:</label>
-                        <select id="filtroCampo" class="form-select flex-grow-1" style="min-width:180px;max-width:300px;">
+                <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius:10px; border:1px solid #e0e0e0; padding:20px;" class="mb-2">
+                    <div class="d-flex align-items-center flex-wrap gap-3 w-100 mb-3">
+                        <label for="filtroCampo" class="form-label mb-0 fw-600" style="white-space:nowrap; color:#333;">🔍 Filtro:</label>
+                        <select id="filtroCampo" class="form-select flex-grow-1" style="min-width:180px; max-width:300px; border-radius:6px; border:1px solid #d0d0d0;">
                             <option value="nombre">Nombre</option>
                             <option value="contacto">Contacto</option>
                             <option value="ciudad">Ciudad</option>
+                            <option value="nombre_pais">País</option>
                             <option value="id_proveedor">ID</option>
                         </select>
-                        <div class="d-flex ms-auto align-items-center" style="min-width:220px;">
-                            <label for="ordenCampo" class="form-label mb-0 me-2" style="white-space:nowrap;">Orden:</label>
-                            <select id="ordenCampo" class="form-select" style="min-width:120px;max-width:180px;">
-                                <option value="asc">Ascendente</option>
-                                <option value="desc">Descendente</option>
+                        <div class="d-flex align-items-center" style="min-width:200px;">
+                            <label for="ordenCampo" class="form-label mb-0 me-2 fw-600" style="white-space:nowrap; color:#333;">Orden:</label>
+                            <select id="ordenCampo" class="form-select" style="border-radius:6px; border:1px solid #d0d0d0;">
+                                <option value="asc">Ascendente ↑</option>
+                                <option value="desc">Descendente ↓</option>
                             </select>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center flex-nowrap gap-2 w-100 mt-2">
-                        <label for="busqueda" class="form-label mb-0" style="white-space:nowrap;">Buscar:</label>
-                        <input type="text" id="busqueda" class="form-control flex-grow-1" placeholder="Buscar..." style="min-width:180px;max-width:300px;">
+                    <div class="d-flex align-items-center flex-wrap gap-2 w-100">
+                        <label for="busqueda" class="form-label mb-0 fw-600" style="white-space:nowrap; color:#333;">Buscar:</label>
+                        <input type="text" id="busqueda" class="form-control flex-grow-1" placeholder="Escribe para filtrar en tiempo real..." style="min-width:200px; border-radius:6px; border:1px solid #d0d0d0;">
                     </div>
                 </div>
             </div>
         </div>
-        <table id="tablaProveedores" class="table table-striped table-bordered">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Contacto</th>
-                    <th>Teléfono</th>
-                    <th>Email</th>
-                    <th>Ciudad</th>
-                    <th>RUC</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="table-responsive">
+            <table id="tablaProveedores" class="table table-hover" style="border-collapse: separate; border-spacing: 0;">
+                <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <tr>
+                        <th style="border-radius:8px 0 0 0; padding:15px;">#</th>
+                        <th style="padding:15px;">ID</th>
+                        <th style="padding:15px;">Nombre</th>
+                        <th style="padding:15px;">Contacto</th>
+                        <th style="padding:15px;">Teléfono</th>
+                        <th style="padding:15px;">Email</th>
+                        <th style="padding:15px;">Ciudad</th>
+                        <th style="padding:15px;">RUC</th>
+                        <th style="padding:15px;">País</th>
+                        <th style="padding:15px;">Tipo</th>
+                        <th style="padding:15px;">Estado</th>
+                        <th style="border-radius:0 8px 0 0; padding:15px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody style="font-size:0.95rem;"></tbody>
+            </table>
+        </div>
     </div>
     </div><!-- End mainContent -->
     <script>
@@ -134,6 +224,25 @@
     // ==================== LÓGICA DEL MÓDULO ====================
     
     let proveedores = [];
+    let paises = [];
+    
+    // Cargar países
+    function cargarPaises() {
+        apiFetch('../Controllers/paises_api.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    paises = data.paises;
+                    const select = document.getElementById('id_pais');
+                    select.innerHTML = '<option value="">-- Seleccione un país --</option>';
+                    paises.forEach(pais => {
+                        select.innerHTML += `<option value="${pais.id_pais}">${pais.nombre}</option>`;
+                    });
+                }
+            })
+            .catch(err => console.error('Error al cargar países:', err));
+    }
+    
     function renderProveedores() {
         const campo = document.getElementById('filtroCampo').value;
         const busqueda = document.getElementById('busqueda').value.toLowerCase();
@@ -163,21 +272,38 @@
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;','`':'&#96;','=':'&#61;'}[c];
             });
         }
+        function getClaseTipo(tipo) {
+            const tipos = {
+                'Distribuidor': 'proveedor-distribuidor',
+                'Fabricante': 'proveedor-fabricante',
+                'Mayorista': 'proveedor-mayorista',
+                'Minorista': 'proveedor-minorista',
+                'Servicios': 'proveedor-servicios',
+                'Otro': 'proveedor-otro'
+            };
+            return tipos[tipo] || 'proveedor-otro';
+        }
         filtrados.forEach((prov, i) => {
+            const estadoBadge = prov.estado == 1 
+                ? '<span class="badge-activo">✓ Activo</span>' 
+                : '<span class="badge-inactivo">✗ Inactivo</span>';
+            
             tbody.innerHTML += `<tr>
                 <td>${i+1}</td>
-                <td>${escapeHtml(prov.id_proveedor.toString())}</td>
+                <td><strong>${escapeHtml(prov.id_proveedor.toString())}</strong></td>
                 <td>${escapeHtml(prov.nombre)}</td>
-                <td>${escapeHtml(prov.contacto)}</td>
-                <td>${escapeHtml(prov.telefono)}</td>
-                <td>${escapeHtml(prov.email)}</td>
-                <td>${escapeHtml(prov.ciudad)}</td>
-                <td>${escapeHtml(prov.ruc)}</td>
-                <td>${prov.estado == 1 ? 'Activo' : 'Inactivo'}</td>
+                <td>${escapeHtml(prov.contacto || '-')}</td>
+                <td>${escapeHtml(prov.telefono || '-')}</td>
+                <td><small>${escapeHtml(prov.email || '-')}</small></td>
+                <td>${escapeHtml(prov.ciudad || '-')}</td>
+                <td><small>${escapeHtml(prov.ruc || '-')}</small></td>
+                <td><strong>${escapeHtml(prov.nombre_pais || '-')}</strong></td>
+                <td><span class="${getClaseTipo(prov.tipo_proveedor)}">${escapeHtml(prov.tipo_proveedor || '-')}</span></td>
+                <td>${estadoBadge}</td>
                 <td>
-                    <button title='Ver' onclick='verProveedor(${escapeHtml(prov.id_proveedor.toString())})'>🔍</button>
-                    <button title='Editar' onclick='editarProveedor(${escapeHtml(prov.id_proveedor.toString())})'>✏️</button>
-                    <button title='Eliminar' onclick='eliminarProveedor(${escapeHtml(prov.id_proveedor.toString())})'>❌</button>
+                    <button title='Ver' onclick='verProveedor(${escapeHtml(prov.id_proveedor.toString())})' style="color:#3b82f6;">🔍</button>
+                    <button title='Editar' onclick='editarProveedor(${escapeHtml(prov.id_proveedor.toString())})' style="color:#f59e0b;">✏️</button>
+                    <button title='Eliminar' onclick='eliminarProveedor(${escapeHtml(prov.id_proveedor.toString())})' style="color:#ef4444;">❌</button>
                 </td>
             </tr>`;
         });
@@ -303,6 +429,13 @@
             document.getElementById('direccion').value = prov.direccion;
             document.getElementById('ciudad').value = prov.ciudad;
             document.getElementById('ruc').value = prov.ruc;
+            document.getElementById('id_pais').value = prov.id_pais || '';
+            document.getElementById('descripcion').value = prov.descripcion || '';
+            document.getElementById('pagina_web').value = prov.pagina_web || '';
+            document.getElementById('tipo_proveedor').value = prov.tipo_proveedor || 'Distribuidor';
+            document.getElementById('regimen_iva').value = prov.regimen_iva || '';
+            document.getElementById('es_sin_animo_lucro').value = prov.es_sin_animo_lucro || '0';
+            document.getElementById('representante_legal').value = prov.representante_legal || '';
             document.getElementById('estado').value = prov.estado;
             document.getElementById('nombre').disabled = true;
             document.getElementById('contacto').disabled = true;
@@ -311,6 +444,13 @@
             document.getElementById('direccion').disabled = true;
             document.getElementById('ciudad').disabled = true;
             document.getElementById('ruc').disabled = true;
+            document.getElementById('id_pais').disabled = true;
+            document.getElementById('descripcion').disabled = true;
+            document.getElementById('pagina_web').disabled = true;
+            document.getElementById('tipo_proveedor').disabled = true;
+            document.getElementById('regimen_iva').disabled = true;
+            document.getElementById('es_sin_animo_lucro').disabled = true;
+            document.getElementById('representante_legal').disabled = true;
             document.getElementById('estado').disabled = true;
             proveedorForm.querySelector('button[type="submit"]').disabled = true;
             btnCancelarForm.disabled = false;
@@ -335,6 +475,13 @@
             document.getElementById('direccion').value = prov.direccion;
             document.getElementById('ciudad').value = prov.ciudad;
             document.getElementById('ruc').value = prov.ruc;
+            document.getElementById('id_pais').value = prov.id_pais || '';
+            document.getElementById('descripcion').value = prov.descripcion || '';
+            document.getElementById('pagina_web').value = prov.pagina_web || '';
+            document.getElementById('tipo_proveedor').value = prov.tipo_proveedor || 'Distribuidor';
+            document.getElementById('regimen_iva').value = prov.regimen_iva || '';
+            document.getElementById('es_sin_animo_lucro').value = prov.es_sin_animo_lucro || '0';
+            document.getElementById('representante_legal').value = prov.representante_legal || '';
             document.getElementById('estado').value = prov.estado;
                 // Habilitar campos para edición
                 document.getElementById('contacto').disabled = false;
@@ -343,6 +490,13 @@
                 document.getElementById('direccion').disabled = false;
                 document.getElementById('ciudad').disabled = false;
                 document.getElementById('ruc').disabled = false;
+                document.getElementById('id_pais').disabled = false;
+                document.getElementById('descripcion').disabled = false;
+                document.getElementById('pagina_web').disabled = false;
+                document.getElementById('tipo_proveedor').disabled = false;
+                document.getElementById('regimen_iva').disabled = false;
+                document.getElementById('es_sin_animo_lucro').disabled = false;
+                document.getElementById('representante_legal').disabled = false;
                 document.getElementById('estado').disabled = false;
         }
     }
@@ -369,6 +523,7 @@
         // Esperar a que initLayout termine
         setTimeout(() => {
             if (typeof apiFetch !== 'undefined') {
+                cargarPaises();
                 cargarProveedores();
             }
         }, 500);
@@ -397,5 +552,126 @@
 .table-disabled {
     pointer-events: none;
     opacity: 0.5;
+}
+
+/* Estilos mejorados para filas de tabla */
+#tablaProveedores tbody tr {
+    background: white;
+    border-bottom: 1px solid #f0f0f0;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+#tablaProveedores tbody tr:hover {
+    background: linear-gradient(90deg, #f8f9ff 0%, #f0f4ff 100%);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    transform: translateY(-2px);
+}
+
+#tablaProveedores tbody tr td {
+    padding: 15px;
+    vertical-align: middle;
+    border: none;
+}
+
+#tablaProveedores tbody tr td:first-child {
+    font-weight: 600;
+    color: #667eea;
+    width: 50px;
+    text-align: center;
+}
+
+#tablaProveedores tbody tr td:nth-child(3) {
+    font-weight: 600;
+    color: #333;
+}
+
+/* Estado badge */
+#tablaProveedores tbody tr td:nth-child(11) {
+    text-align: center;
+}
+
+#tablaProveedores tbody tr .badge-activo {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+#tablaProveedores tbody tr .badge-inactivo {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* Botones de acciones */
+#tablaProveedores tbody tr button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    margin: 0 5px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+#tablaProveedores tbody tr button:hover {
+    transform: scale(1.15);
+    background: rgba(102, 126, 234, 0.1);
+}
+
+#tablaProveedores tbody tr button:nth-of-type(1) {
+    color: #3b82f6;
+}
+
+#tablaProveedores tbody tr button:nth-of-type(2) {
+    color: #f59e0b;
+}
+
+#tablaProveedores tbody tr button:nth-of-type(3) {
+    color: #ef4444;
+}
+
+/* Tipos de proveedor con colores */
+.proveedor-distribuidor { color: #667eea; font-weight: 600; }
+.proveedor-fabricante { color: #f59e0b; font-weight: 600; }
+.proveedor-mayorista { color: #10b981; font-weight: 600; }
+.proveedor-minorista { color: #8b5cf6; font-weight: 600; }
+.proveedor-servicios { color: #ec4899; font-weight: 600; }
+.proveedor-otro { color: #6b7280; font-weight: 600; }
+
+/* Animación de carga */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#tablaProveedores tbody tr {
+    animation: fadeInUp 0.3s ease forwards;
+}
+
+/* Responsive tabla */
+@media (max-width: 1200px) {
+    #tablaProveedores tbody tr td {
+        padding: 12px 8px;
+        font-size: 0.9rem;
+    }
+    #tablaProveedores thead th {
+        padding: 12px 8px;
+        font-size: 0.9rem;
+    }
 }
 </style>
